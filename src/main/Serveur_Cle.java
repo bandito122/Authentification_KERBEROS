@@ -1,7 +1,7 @@
 package main;
 
-import DiffieHellman.DHServer;
 import GestionSocket.GestionSocket;
+import JavaLibrary.Crypto.DiffieHellman.DHServer;
 import Network.Constants.Server_Cle_constants;
 import ServeurCle.SC_State;
 import java.io.FileInputStream;
@@ -15,10 +15,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
 import Network.Request;
 import java.io.FileNotFoundException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchProviderException;
-import java.security.cert.CertificateException;
+import java.io.ObjectInputStream;
 /*
  * @author Julien
  * Représente le Serveur_Clé que contact l'Application_Admin pour avoir sa clé long terme 
@@ -37,23 +34,23 @@ import java.security.cert.CertificateException;
  */
 public class Serveur_Cle {
     //constantes fichiers
-    private static final String DIRECTORY="~/server_cle/",  
+    private static final String DIRECTORY=System.getProperty("user.home")+ System.getProperty("file.separator")+
+            "server_cle/"+ System.getProperty("file.separator"),  
             CONFIG_FILE=DIRECTORY+"config.properties", USERS_FILE=DIRECTORY+"users.properties";
     
     //variables membres
     private Properties config, users;
     private boolean quit;
     private int port;
-    private String provider, algorithm, cipherMode, padding,ksName, ksPwd, ksType;
+    private String provider, algorithm, cipherMode, padding, storeName;
     private DHServer dh;
     private SC_State actualState;
-    private KeyStore ks;
     
     public Serveur_Cle() {
         try {
             this.quit=false;
             loadConfig();
-            loadKeystore();
+            loadKey();
             
         } catch (Exception ex) {
             System.err.printf("[SERVEUR_CLE] Exception %s : %s\n", 
@@ -172,10 +169,6 @@ public class Serveur_Cle {
     public String getPadding() {
         return padding;
     }
-    
-    public KeyStore getKeyStore() { 
-        return this.ks; 
-    }
 
     private void loadConfig() throws NoSuchFieldException, IOException {
         //Check if properties exists
@@ -187,23 +180,21 @@ public class Serveur_Cle {
             
         this.port=Integer.valueOf(config.getProperty("port"));
         this.provider=config.getProperty("provider");
-        this.ksName=config.getProperty("keystore");
-        this.ksPwd=config.getProperty("kspwd");
-        this.ksType=config.getProperty("ksType");
+        this.storeName=config.getProperty("keystore");
         this.algorithm=config.getProperty("algorithm");
         this.cipherMode=config.getProperty("cipher");
         this.padding=config.getProperty("padding");
         
-        if(ksName==null || ksPwd==null || ksType==null || provider==null || getCipherMode()==null ||
-                getAlgorithm()==null || getPadding()==null) {
+        if(storeName==null || provider==null || cipherMode==null ||
+                algorithm==null || padding==null) {
             throw new NoSuchFieldException();
         }
     }
 
-    private void loadKeystore() throws KeyStoreException, NoSuchProviderException, 
-            FileNotFoundException, IOException, NoSuchAlgorithmException, CertificateException {
-        KeyStore ks=KeyStore.getInstance(ksType, provider);
-        ks.load(new FileInputStream(ksName), ksPwd.toCharArray());
+    private void loadKey() throws FileNotFoundException, IOException {
+        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(storeName));
+        
+        
     }
 
 }

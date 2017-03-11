@@ -16,9 +16,9 @@ import main.Serveur_Cle;
 /*
  * @author Julien
  */
-public class SC_DHState extends SC_State {
+public class SC_DH extends SC_State {
 
-    public SC_DHState(GestionSocket gsocket, Serveur_Cle sc) {
+    public SC_DH(GestionSocket gsocket, Serveur_Cle sc) {
         super(gsocket, sc);
     }
     
@@ -27,9 +27,9 @@ public class SC_DHState extends SC_State {
         try {
             sc.setDHKey(ByteUtils.toByteArray(r.getChargeUtile()));
             //si ok, passer à l'état suivant
-            sc.setActualState(new SC_DHState(gsocket, sc));
+            sc.setActualState(new SC_DH(gsocket, sc));
         } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException | InvalidAlgorithmParameterException | InvalidKeyException ex) {
-            Logger.getLogger(SC_DHState.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SC_DH.class.getName()).log(Level.SEVERE, null, ex);
             
             //envoyer message erreur au client
             r=new Request(Server_Cle_constants.FAIL);

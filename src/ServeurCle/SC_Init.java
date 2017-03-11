@@ -1,7 +1,7 @@
 package ServeurCle;
 
-import DiffieHellman.DHServer;
 import GestionSocket.GestionSocket;
+import JavaLibrary.Crypto.DiffieHellman.DHServer;
 import Network.Constants.Server_Cle_constants;
 import Network.Request;
 import java.security.NoSuchAlgorithmException;
@@ -13,9 +13,9 @@ import main.Serveur_Cle;
 /*
  * @author Julien
  */
-public class SC_InitState extends SC_State {
+public class SC_Init extends SC_State {
 
-    public SC_InitState(GestionSocket gsocket, Serveur_Cle sc) {
+    public SC_Init(GestionSocket gsocket, Serveur_Cle sc) {
         super(gsocket,sc);
     }
     
@@ -24,9 +24,10 @@ public class SC_InitState extends SC_State {
         try {
             sc.setDh(new DHServer());
             //si ok, passer à l'état suivant
-            sc.setActualState(new SC_DHState(gsocket, sc));
+            sc.setActualState(new SC_DH(gsocket, sc));
+            
         } catch (NoSuchAlgorithmException | NoSuchProviderException ex) {
-            Logger.getLogger(SC_InitState.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(SC_Init.class.getName()).log(Level.SEVERE, null, ex);
             
             //envoyer erreur au client
             r=new Request(Server_Cle_constants.FAIL);

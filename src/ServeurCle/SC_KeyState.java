@@ -34,25 +34,23 @@ public class SC_KeyState extends SC_State {
         try {
             ArrayList<String> param=(ArrayList<String>) r.getChargeUtile();
             //récupérer la clé dans le Keystore
-            KeyStore ks=sc.getKeyStore();
-            SecretKey sk=(SecretKey) ks.getKey(param.get(0),param.get(1).toCharArray());
+            
             
             //Chiffrer
             Cipher c=Cipher.getInstance(sc.getAlgorithm()+'/'+sc.getCipherMode()+'/'
                     +sc.getPadding());
             c.init(Cipher.ENCRYPT_MODE, sc.getDh().getSecretKey());
-            byte[] cipherKey=c.doFinal(sk.getEncoded());
+            //byte[] cipherKey=c.doFinal(sk.getEncoded());
             
             //envoyer
             r=new Request(Server_Cle_constants.YES);
-            r.setChargeUtile(ByteUtils.toByteArray(cipherKey));
+            //r.setChargeUtile(ByteUtils.toByteArray(cipherKey));
             gsocket.Send(r);
             
             //pas d'erreur: mettre acutalState à l'état initial
-            sc.setActualState(new SC_InitState(gsocket, sc));
-        } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException | 
-                NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | 
-                BadPaddingException | IOException ex) {
+            sc.setActualState(new SC_Init(gsocket, sc));
+        } catch (NoSuchAlgorithmException | 
+                NoSuchPaddingException | InvalidKeyException ex) {
             Logger.getLogger(SC_KeyState.class.getName()).log(Level.SEVERE, null, ex);
             
             //Envoyer erreur au client
