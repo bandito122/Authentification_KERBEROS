@@ -1,3 +1,4 @@
 TODO LIST:
 Améliorer la gestion des erreurs dans les Serveurs (messages + précis dans les interfaces)
 KerberosAS: certaines variables static doivent être définies dans le fichier config
+Modifier JavaLibrary: les classes Chiffrements doivent pouvoir chiffrer des tableaux de bytes...
