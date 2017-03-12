@@ -7,6 +7,7 @@ import java.io.Serializable;
 
 /*
  * @author Julien
+ * Classe représentant une requête du client au serveur et vice-versa. 
  */
 public class Request implements IRequest, Serializable {
     private int type;
@@ -14,7 +15,7 @@ public class Request implements IRequest, Serializable {
 
     public Request(int type) {
         this.type=type;
-        chargeUtile=new Object();
+        chargeUtile=""; //object pas serializable, pas défaut donc, c'est un String
     }
     
     @Override

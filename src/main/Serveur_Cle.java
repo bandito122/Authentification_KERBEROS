@@ -1,7 +1,13 @@
 package main;
 
 import GestionSocket.GestionSocket;
+import JavaLibrary.Crypto.Chiffrement;
+import JavaLibrary.Crypto.Cle;
+import JavaLibrary.Crypto.CleImpl.CleDES;
+import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.DiffieHellman.DHServer;
+import JavaLibrary.Crypto.NoSuchChiffrementException;
+import JavaLibrary.Crypto.NoSuchCleException;
 import Network.Constants.Server_Cle_constants;
 import ServeurCle.SC_State;
 import java.io.FileInputStream;
@@ -14,8 +20,12 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
 import Network.Request;
+import ServeurCle.SC_Init;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.security.NoSuchProviderException;
 /*
  * @author Julien
  * Représente le Serveur_Clé que contact l'Application_Admin pour avoir sa clé long terme 
@@ -35,14 +45,16 @@ import java.io.ObjectInputStream;
 public class Serveur_Cle {
     //constantes fichiers
     private static final String DIRECTORY=System.getProperty("user.home")+ System.getProperty("file.separator")+
-            "server_cle/"+ System.getProperty("file.separator"),  
-            CONFIG_FILE=DIRECTORY+"config.properties", USERS_FILE=DIRECTORY+"users.properties";
+            "server_cle"+ System.getProperty("file.separator"),  
+            CONFIG_FILE=DIRECTORY+"config.properties", USERS_FILE=DIRECTORY+"users.properties",
+            EXT=".key",
+            KEY_TYPE="DES";
     
     //variables membres
     private Properties config, users;
     private boolean quit;
     private int port;
-    private String provider, algorithm, cipherMode, padding, storeName;
+    private String provider, algorithm, cipherMode, padding;
     private DHServer dh;
     private SC_State actualState;
     
@@ -50,8 +62,6 @@ public class Serveur_Cle {
         try {
             this.quit=false;
             loadConfig();
-            loadKey();
-            
         } catch (Exception ex) {
             System.err.printf("[SERVEUR_CLE] Exception %s : %s\n", 
                     ex.getClass().toString(), ex.getMessage());
@@ -91,20 +101,25 @@ public class Serveur_Cle {
 
     private void startListening() throws IOException {
         ServerSocket ss=new ServerSocket(port);
+        System.out.printf("[SERVER]Launched! waiting for client");
         Socket clientSocket=ss.accept();
         System.out.printf("[SERVER] client connected: %s:%d\n", 
                 clientSocket.getInetAddress().toString(), clientSocket.getPort());
         
         GestionSocket gs=new GestionSocket(clientSocket);
+        this.actualState=new SC_Init(gs, this);
         
         while(!quit) {
             Request req=(Request) gs.Receive();
             switch(req.getType()) {
-                case Server_Cle_constants.DH: actualState.instantiate_DH(req);
+                case Server_Cle_constants.DH: System.out.println("[SERVER] DH request received");
+                    actualState.instantiate_DH(req);
                     break;
-                case Server_Cle_constants.DHPK: actualState.DH_SetPublicKey(req);
+                case Server_Cle_constants.DHPK: System.out.println("[SERVER]DHPK request received");
+                    actualState.DH_SetPublicKey(req);
                     break;
-                case Server_Cle_constants.GETKEY: actualState.get_key(req);
+                case Server_Cle_constants.GETKEY:  System.out.println("[SERVER]GET KEY received"); 
+                    actualState.get_key(req);
                     break;
                 default: actualState.OperationNotPermitted(String.valueOf(req.getType()));
             }
@@ -180,21 +195,46 @@ public class Serveur_Cle {
             
         this.port=Integer.valueOf(config.getProperty("port"));
         this.provider=config.getProperty("provider");
-        this.storeName=config.getProperty("keystore");
         this.algorithm=config.getProperty("algorithm");
         this.cipherMode=config.getProperty("cipher");
         this.padding=config.getProperty("padding");
         
-        if(storeName==null || provider==null || cipherMode==null ||
+        if(provider==null || cipherMode==null ||
                 algorithm==null || padding==null) {
             throw new NoSuchFieldException();
         }
     }
 
-    private void loadKey() throws FileNotFoundException, IOException {
-        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(storeName));
+    private Cle loadKey(String filename) throws FileNotFoundException, IOException, ClassNotFoundException {
+        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(filename));
+        Cle c=(Cle) ois.readObject();
+        ois.close();
+        return c;
+    }
+    
+    private Cle createKey(String username) throws NoSuchChiffrementException, IOException, 
+            NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
+        Cle k = (Cle) CryptoManager.genereCle(KEY_TYPE);
+        ((CleDES)k).generateNew();
         
+        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(username+EXT));
+        oos.writeObject(k);
+        oos.close();
+        return k;
+    }
+    
+    //utili
+    public Cle getKey(String keyUser) throws IOException, ClassNotFoundException, NoSuchProviderException,
+            NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException {
+        Cle c;
+        try {
+            c=this.loadKey(DIRECTORY+keyUser+EXT);
+        } catch(FileNotFoundException e) {
+            //fichier non trouvé=il faut la créer puis la sauvegarder
+            c=this.createKey(DIRECTORY+keyUser+EXT);
+        } 
         
+        return c;
     }
 
 }

@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 
 /*
  * @author Julien
@@ -33,7 +34,17 @@ public class ByteUtils {
         return bytes;
     }
     
-    public static Object toObject(byte[] bytes) throws IOException, ClassNotFoundException {
+    public static byte[] toByteArray(ArrayList<Byte> obj) throws IOException {
+        byte[] bytes = new byte[obj.size()];
+       
+        for(int i=0;i<obj.size();i++) {
+            bytes[i]=obj.get(i);
+        }
+        
+        return bytes;
+    }
+    
+    public static Object toObject2(byte[] bytes) throws IOException, ClassNotFoundException {
         Object obj = null;
         ByteArrayInputStream bis = null;
         ObjectInputStream ois = null;
@@ -49,6 +60,18 @@ public class ByteUtils {
                 ois.close();
             }
         }
+        return obj;
+    }
+    
+    /* VERSION ARRAYLIST CAR OBJECT PAS SERIALIZABLE */
+    public static ArrayList<Byte> toObject(byte[] bytes) throws IOException, ClassNotFoundException {
+        ArrayList<Byte> obj=new ArrayList<>(bytes.length);
+        
+        for(byte b:bytes) {
+            Byte B=(Byte)b;
+            obj.add(B);
+        }
+        
         return obj;
     }
 }
