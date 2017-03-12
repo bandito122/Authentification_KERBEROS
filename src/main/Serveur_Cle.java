@@ -210,8 +210,8 @@ public class Serveur_Cle {
         }
     }
 
-    private Cle loadKey(String filename) throws FileNotFoundException, IOException, ClassNotFoundException {
-        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(filename));
+    private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
+        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+EXT));
         Cle c=(Cle) ois.readObject();
         ois.close();
         return c;
@@ -222,7 +222,7 @@ public class Serveur_Cle {
         Cle k = (Cle) CryptoManager.genereCle(KEY_TYPE);
         ((CleDES)k).generateNew();
         
-        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(username+EXT));
+        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(DIRECTORY+username+EXT));
         oos.writeObject(k);
         oos.close();
         return k;
@@ -232,10 +232,10 @@ public class Serveur_Cle {
             NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException {
         Cle c;
         try {
-            c=this.loadKey(DIRECTORY+keyUser+EXT);
+            c=this.loadKey(keyUser);
         } catch(FileNotFoundException e) {
             //fichier non trouvé=il faut la créer puis la sauvegarder
-            c=this.createKey(DIRECTORY+keyUser+EXT);
+            c=this.createKey(keyUser);
         } 
         
         return c;

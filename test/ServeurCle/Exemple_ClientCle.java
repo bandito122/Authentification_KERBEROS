@@ -34,7 +34,8 @@ public class Exemple_ClientCle {
     public static String KEY_TYPE="DES";
     public static String USERNAME="julien";
     public static String PWD="test";
-    public static String SAVING__DIR="C:\\Users\\Julien\\exemple_cle";
+    public static String SAVING__DIR=System.getProperty("user.home")+System.getProperty("file.separator")+
+            "client_cle"+System.getProperty("file.separator")+"exemple_cle.key";
     
     public static void main(String[] args) {
         try {
