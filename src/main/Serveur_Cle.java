@@ -1,5 +1,4 @@
 package main;
-
 import GestionSocket.GestionSocket;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
@@ -47,14 +46,13 @@ public class Serveur_Cle {
     private static final String DIRECTORY=System.getProperty("user.home")+ System.getProperty("file.separator")+
             "server_cle"+ System.getProperty("file.separator"),  
             CONFIG_FILE=DIRECTORY+"config.properties", USERS_FILE=DIRECTORY+"users.properties",
-            EXT=".key",
-            KEY_TYPE="DES";
+            EXT=".key";
     
     //variables membres
     private Properties config, users;
     private boolean quit;
     private int port;
-    private String provider, algorithm, cipherMode, padding;
+    private String provider, algorithm, cipher, padding;
     private DHServer dh;
     private SC_State actualState;
     private SecurePasswordSha256 sp;
@@ -70,8 +68,6 @@ public class Serveur_Cle {
             
             if(ex instanceof IOException) { //si un des fichiers properties pas trouvé
                 usage_file();
-            } else if(ex instanceof NumberFormatException) { //attribut port pas trouvé
-                usage_config();
             } else if(ex instanceof NoSuchFieldException) {
                 usage_config();
             }
@@ -93,14 +89,13 @@ public class Serveur_Cle {
     }
     
     public static void usage_config() {
-        System.out.printf("Le fichier %s doit comporter les Clés-Valeurs: port, keystore, "
-                + "kspwd, algorithm, cipher, padding\n", CONFIG_FILE);
+        System.out.printf("Le fichier %s doit comporter les Clés-Valeurs: port,"
+                + "provider, algorithm, cipher, padding\n", CONFIG_FILE);
     }
     
     public static void main(String[] args) {
         Serveur_Cle sc=new Serveur_Cle();
     }
-
     private void startListening() throws IOException {
         ServerSocket ss=new ServerSocket(port);
         System.out.printf("[SERVER]Launched! waiting for client\n");
@@ -129,20 +124,17 @@ public class Serveur_Cle {
                 default: actualState.OperationNotPermitted(String.valueOf(req.getType()));
             }
         }
-        
     }
     
     public void stopListening() {
         this.quit=true;
     }
-
     /**
      * @param dh the dh to set
      */
     public void setDh(DHServer dh) {
         this.dh = dh;
     }
-
     /**
      * @param key the key to set
      * @throws java.security.NoSuchAlgorithmException
@@ -154,62 +146,42 @@ public class Serveur_Cle {
             InvalidAlgorithmParameterException, InvalidKeyException {
         this.dh.setPublicKey(key);
     }
-
     /**
      * @return the dh
      */
     public DHServer getDh() {
         return dh;
     }
-
     /**
      * @param actualState the actualState to set
      */
     public void setActualState(SC_State actualState) {
         this.actualState = actualState;
     }
-
     /**
      * @return the algorithm
      */
     public String getAlgorithm() {
         return algorithm;
     }
-
-    /**
-     * @return the cipherMode
-     */
-    public String getCipherMode() {
-        return cipherMode;
-    }
-
-    /**
-     * @return the padding
-     */
-    public String getPadding() {
-        return padding;
-    }
-
+    
     private void loadConfig() throws NoSuchFieldException, IOException {
         //Check if properties exists
         this.config=new Properties();
         this.users=new Properties();
-
         this.config.load(new FileInputStream(CONFIG_FILE));
         this.users.load(new FileInputStream(USERS_FILE));
             
-        this.port=Integer.valueOf(config.getProperty("port"));
-        this.provider=config.getProperty("provider");
+        String s_port=config.getProperty("port");
         this.algorithm=config.getProperty("algorithm");
-        this.cipherMode=config.getProperty("cipher");
-        this.padding=config.getProperty("padding");
+        this.provider=config.getProperty("provider");
         
-        if(provider==null || cipherMode==null ||
-                algorithm==null || padding==null) {
+        if(algorithm==null || provider==null || s_port==null) {
             throw new NoSuchFieldException();
         }
+        
+        port=Integer.valueOf(s_port);
     }
-
     private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
         ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+EXT));
         Cle c=(Cle) ois.readObject();
@@ -219,7 +191,7 @@ public class Serveur_Cle {
     
     private Cle createKey(String username) throws NoSuchChiffrementException, IOException, 
             NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
-        Cle k = (Cle) CryptoManager.genereCle(KEY_TYPE);
+        Cle k = (Cle) CryptoManager.genereCle(algorithm);
         ((CleDES)k).generateNew();
         
         ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(DIRECTORY+username+EXT));
@@ -256,5 +228,19 @@ public class Serveur_Cle {
         }
         
         return passwordMatch;
+    }
+
+    /**
+     * @return the cipher
+     */
+    public String getCipher() {
+        return cipher;
+    }
+
+    /**
+     * @return the padding
+     */
+    public String getPadding() {
+        return padding;
     }
 }

@@ -37,7 +37,7 @@ public class SC_KeyState extends SC_State {
             Cle cle=sc.getKey(username);
             
             //Chiffrer l'objet Clé
-            Cipher c=Cipher.getInstance(sc.getAlgorithm()+'/'+sc.getCipherMode()+'/'
+            Cipher c=Cipher.getInstance(sc.getAlgorithm()+'/'+sc.getCipher()+'/'
                     +sc.getPadding());
             c.init(Cipher.ENCRYPT_MODE, sc.getDh().getSecretKey());
             byte[] cipherKey=c.doFinal(ByteUtils.toByteArray((Object)cle));
