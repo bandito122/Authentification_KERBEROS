@@ -3,6 +3,7 @@ package ServeurCle;
 import GestionSocket.GestionSocket;
 import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
+import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import Network.Constants.Server_Cle_constants;
@@ -36,18 +37,26 @@ public class SC_KeyState extends SC_State {
             String username=(String)r.getChargeUtile();
             
             //récupérer la clé dans un fichier .key
-            Cle k=sc.getKey(username);
+            Cle cle=sc.getKey(username);
             
             //Chiffrer l'objet Clé
             Cipher c=Cipher.getInstance(sc.getAlgorithm()+'/'+sc.getCipherMode()+'/'
                     +sc.getPadding());
             c.init(Cipher.ENCRYPT_MODE, sc.getDh().getSecretKey());
-            byte[] cipherKey=c.doFinal(ByteUtils.toByteArray((Object)k));
+            byte[] cipherKey=c.doFinal(ByteUtils.toByteArray((Object)cle));
             
             //envoyer la clé chiffrée
             r=new Request(Server_Cle_constants.YES);
             r.setChargeUtile(ByteUtils.toObject(cipherKey));
             gsocket.Send(r);
+            
+            //test à comparer avec un client
+            /*Chiffrement ch=(Chiffrement) CryptoManager.newInstance("DES");
+            ch.init(cle);
+            String ciphertext=ch.crypte("Test nananan");
+            System.out.printf("texte chiffré: %s\n",ciphertext);
+            String plainText=ch.decrypte(ciphertext);
+            System.out.printf("text déchiffré: %s\n", plainText);*/
             
             //pas d'erreur: mettre acutalState à l'état initial
             sc.setActualState(new SC_Init(gsocket, sc));

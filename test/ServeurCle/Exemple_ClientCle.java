@@ -3,10 +3,13 @@ package ServeurCle;
 import GestionSocket.GestionSocket;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.DiffieHellman.DHClient;
+import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import Network.Constants.Server_Cle_constants;
 import Network.Request;
 import Utils.ByteUtils;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -31,17 +34,33 @@ public class Exemple_ClientCle {
     public static String KEY_TYPE="DES";
     public static String USERNAME="julien";
     public static String PWD="test";
+    public static String SAVING__DIR="C:\\Users\\Julien\\exemple_cle";
     
     public static void main(String[] args) {
         try {
+            SecurePasswordSha256 sp=new SecurePasswordSha256(PWD);
+            
             //SC doit écouter sur le port 6001
             Socket s=new Socket(HOST, PORT);
             System.out.println("[CLIENT] connected to server: sending DH ");
             DHClient dh=new DHClient();
             GestionSocket gsocket=new GestionSocket(s);
+            
             //envoit demande de DH avec sa partie publique
             Request r=new Request(Server_Cle_constants.DH);
+            ArrayList<String> param=new ArrayList<>(2);
+            param.add(USERNAME);
+            param.add(sp.getHashedPassword());
+            param.add(sp.getSalt());
+            r.setChargeUtile(param);
             gsocket.Send(r);
+            
+            r=(Request) gsocket.Receive();
+            if(r.getType()==Server_Cle_constants.YES) {
+                System.out.printf("User %s is connected\n", USERNAME);
+            } else {
+                System.out.printf("User %s is NOT connected\n",USERNAME);
+            }
             
             //envoi sa clé publique
             System.out.println("[CLIENT]Sending public key");
@@ -78,6 +97,18 @@ public class Exemple_ClientCle {
                 byte[] cipherKey=ByteUtils.toByteArray(cipherKeyObject);
                 byte[] plainKey=c.doFinal(cipherKey);
                 Cle cle=(Cle) ByteUtils.toObject2(plainKey);
+                //sauvegarder la clé 
+                ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(SAVING__DIR));
+                oos.writeObject(cle);
+                oos.close();
+                
+                //test à comparer avec le serveur_clé
+                /*Chiffrement ch=(Chiffrement) CryptoManager.newInstance("DES");
+                ch.init(cle);
+                String ciphertext=ch.crypte("Test nananan");
+                System.out.printf("texte chiffré: %s\n",ciphertext);
+                String plainText=ch.decrypte(ciphertext);
+                System.out.printf("text déchiffré: %s\n", plainText);*/
             } else {
                 System.out.println("[CLIENT]Answer is no");
                 System.out.printf("ERROR: received %d type!\n",r.getType());

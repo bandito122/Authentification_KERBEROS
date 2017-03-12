@@ -1,13 +1,13 @@
 package main;
 
 import GestionSocket.GestionSocket;
-import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.DiffieHellman.DHServer;
 import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
+import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import Network.Constants.Server_Cle_constants;
 import ServeurCle.SC_State;
 import java.io.FileInputStream;
@@ -57,10 +57,12 @@ public class Serveur_Cle {
     private String provider, algorithm, cipherMode, padding;
     private DHServer dh;
     private SC_State actualState;
-    
+    private SecurePasswordSha256 sp;
     public Serveur_Cle() {
         try {
             this.quit=false;
+            this.sp = new SecurePasswordSha256();
+            
             loadConfig();
         } catch (Exception ex) {
             System.err.printf("[SERVEUR_CLE] Exception %s : %s\n", 
@@ -101,7 +103,7 @@ public class Serveur_Cle {
 
     private void startListening() throws IOException {
         ServerSocket ss=new ServerSocket(port);
-        System.out.printf("[SERVER]Launched! waiting for client");
+        System.out.printf("[SERVER]Launched! waiting for client\n");
         Socket clientSocket=ss.accept();
         System.out.printf("[SERVER] client connected: %s:%d\n", 
                 clientSocket.getInetAddress().toString(), clientSocket.getPort());
@@ -111,6 +113,9 @@ public class Serveur_Cle {
         
         while(!quit) {
             Request req=(Request) gs.Receive();
+            if(req==null) {
+                break;
+            }
             switch(req.getType()) {
                 case Server_Cle_constants.DH: System.out.println("[SERVER] DH request received");
                     actualState.instantiate_DH(req);
@@ -223,7 +228,6 @@ public class Serveur_Cle {
         return k;
     }
     
-    //utili
     public Cle getKey(String keyUser) throws IOException, ClassNotFoundException, NoSuchProviderException,
             NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException {
         Cle c;
@@ -236,5 +240,21 @@ public class Serveur_Cle {
         
         return c;
     }
-
+    
+    
+    public boolean connectUser(String username, String salt, String receivedPassword) throws IOException {
+        boolean passwordMatch=false;
+        try {
+            String password=users.getProperty(username); //retourne NULL si le user n'existe pas
+            this.sp = new SecurePasswordSha256();
+            this.sp.setSalt(salt);
+            this.sp.generate(password);
+            if(sp.verify(receivedPassword)) { //si les SHA256 des pwd match=> OK
+                passwordMatch=true;
+            }
+        } catch(NullPointerException e) { //si user n'existe pas!
+        }
+        
+        return passwordMatch;
+    }
 }
