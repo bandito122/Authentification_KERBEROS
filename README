@@ -1,4 +1,9 @@
 TODO LIST:
 Améliorer la gestion des erreurs dans les Serveurs (messages + précis dans les interfaces)
-KerberosAS: certaines variables static doivent être définies dans le fichier config
+KerberosAS: certaines variables static doivent être définies dans le fichier config,le port du serveur TGS doit aussi etre dans config
 Modifier JavaLibrary: les classes Chiffrements doivent pouvoir chiffrer des tableaux de bytes...
+Ajouter l'utilisation des ThreadPoolExecutor
+KerberosTGS: vérifier les informations reçues par le client
+
+QUESTIONS:
+Le serveur TGS a-t-il une clé par client ou une clé en général... ?

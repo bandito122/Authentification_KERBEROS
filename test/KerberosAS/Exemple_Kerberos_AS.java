@@ -3,9 +3,12 @@ package KerberosAS;
 import GestionSocket.GestionSocket;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
+import JavaLibrary.Crypto.HMAC.HMAC;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
+import Kerberos.AuthenticatorCS;
 import Kerberos.TicketTGS;
 import Network.Constants.KerberosAS_Constantes;
+import Network.Constants.KerberosTGS_Constantes;
 import Network.Request;
 import Utils.ByteUtils;
 import java.io.FileInputStream;
@@ -16,8 +19,11 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,7 +37,8 @@ import javax.crypto.NoSuchPaddingException;
  */
 public class Exemple_Kerberos_AS {
     public static String HOST="localhost";
-    public static int PORT=6002;
+    public static int PORT_AS=6002;
+    public static int PORT_TGS=6003;
     public static String KEY_TYPE="DES";
     public static String USERNAME="julien";
     public static String PWD="test";    
@@ -41,30 +48,28 @@ public class Exemple_Kerberos_AS {
     public static String KEY_DIR=System.getProperty("user.home")+System.getProperty("file.separator")+
             "client_cle"+System.getProperty("file.separator")+"exemple_cle.key";
     
-    //pour l'horo-datage
-    static SimpleDateFormat sdf;
-    
-    static Cle cle;
+    static Cle cleLongTerme;
     static GestionSocket gsocket;
     static Socket s;
     static Cipher cipher;
     
     public static void main(String[] args) {
         try {
-            sdf=new SimpleDateFormat("DD/MM/YYYY HH:mm");
             //lire la clé utilisateur long terme, ici dans un fichier, en vrai reçue du serveur clé
-            cle=loadKey();
+            cleLongTerme=loadKey();
             cipher=Cipher.getInstance("DES/ECB/PKCS5Padding");
-            s=new Socket(HOST, PORT);
+            s=new Socket(HOST, PORT_AS);
             gsocket=new GestionSocket(s);
-            System.out.printf("[CLIENT]Connected to server %s:%d\n",HOST, PORT);
+            System.out.printf("[CLIENT]Connected to server %s:%d\n",HOST, PORT_AS);
             
-            SendFirstPacket();
+                SendFirstPacket();
         } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | 
                 NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | 
                 BadPaddingException ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
             System.exit(-1);
+        } catch (NoSuchProviderException ex) {
+            Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -75,7 +80,7 @@ public class Exemple_Kerberos_AS {
         return c;
     }
 
-    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, BadPaddingException {
+    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, BadPaddingException, NoSuchProviderException {
         //pour ne pas que le PWD passe en clair!
         SecurePasswordSha256 sp=new SecurePasswordSha256(PWD);
         
@@ -102,7 +107,7 @@ public class Exemple_Kerberos_AS {
         r=(Request) gsocket.Receive();
         if(r.getType()==KerberosAS_Constantes.YES) {
             //OK
-            cipher.init(Cipher.DECRYPT_MODE, ((CleDES)cle).getCle());
+            cipher.init(Cipher.DECRYPT_MODE, ((CleDES)cleLongTerme).getCle());
             ArrayList<Object> param=(ArrayList<Object>) r.getChargeUtile();
             ArrayList<byte[]> firstPart=(ArrayList<byte[]>) param.get(0);
             ArrayList<byte[]> secondPart=(ArrayList<byte[]>) param.get(1);
@@ -114,7 +119,43 @@ public class Exemple_Kerberos_AS {
             String tgServerAddr=new String(cipher.doFinal(firstPart.get(2)), ENCODING);
             
             //deuxieme partie= TICKET, faut avoir le AS
-            TicketTGS ticketTGS= new TicketTGS(HOST, PWD, LocalDate.MIN);
+            HMAC hmac=new HMAC();
+            LocalDateTime now=LocalDateTime.now();
+            hmac.generate(((CleDES)cleSession).getCle(), USERNAME+now.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:00")));
+            ArrayList<Object> tgsParam=new ArrayList<>(3);
+            
+            AuthenticatorCS acs=new AuthenticatorCS(USERNAME, LocalDateTime.now(), hmac.ToString());
+            
+            Request tgsReq=new Request(KerberosTGS_Constantes.INIT);
+            
+            //Connexion au serveur TGS
+            Socket s=new Socket(HOST, PORT_TGS);
+            GestionSocket gs2=new GestionSocket(s);
+            
+            //chiffrer l'ACS
+            cipher.init(Cipher.ENCRYPT_MODE, ((CleDES)cleSession).getCle());
+            tgsParam.add(cipher.doFinal(ByteUtils.toByteArray(acs))); //ACS
+            //ajout des autres paramètres
+            tgsParam.add(secondPart.get(0)); //tgs déjà chiffré
+            tgsParam.add("default"); //nom serveur
+            tgsReq.setChargeUtile(tgsParam);
+                    
+            gs2.Send(tgsReq);
+            Request reponse2=(Request) gs2.Receive();
+            cipher.init(Cipher.DECRYPT_MODE, ((CleDES)cleSession).getCle());
+            param=(ArrayList<Object>) reponse2.getChargeUtile();
+            //premiere partie est chiffrée par kctgs
+            firstPart=(ArrayList<byte[]>) param.get(0);
+            Cle kcs=(Cle) ByteUtils.toObject2(cipher.doFinal(firstPart.get(0)));
+            version=ByteBuffer.wrap(cipher.doFinal(firstPart.get(1))).getInt();
+            String nomServeur=new String(cipher.doFinal(firstPart.get(2)),ENCODING);
+            LocalDateTime ldt=LocalDateTime.parse(
+                    new String(cipher.doFinal(firstPart.get(3)), ENCODING),
+                    DateTimeFormatter.ofPattern("dd/MM/yyyy HH:00"));
+            
+            //seconde partie par ks... on ne sait pas la déchiffrer!
+            byte[] ticketBis=secondPart.get(0);
+            System.out.println("OKOKOKKOKOK");
         } else {
             stop();
         }

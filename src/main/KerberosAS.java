@@ -189,20 +189,20 @@ public class KerberosAS {
     
     private void startListening() throws IOException, NoSuchPaddingException {
         ServerSocket ss=new ServerSocket(port);
-        System.out.printf("[SERVER]Launched! waiting for client\n");
+        System.out.printf("[KERBEROS AS]Launched! waiting for client\n");
         Socket clientSocket=ss.accept();
-        System.out.printf("[SERVER] client connected: %s:%d\n", 
+        System.out.printf("[KERBEROS AS] client connected: %s:%d\n", 
                 clientSocket.getInetAddress().toString(), clientSocket.getPort());
-        
+
         gsocket=new GestionSocket(clientSocket);
-        
+
         while(!quit) {
             Request req=(Request) gsocket.Receive();
             if(req==null) {
                 break;
             }
             switch(req.getType()) {
-                case KerberosAS_Constantes.INIT: System.out.println("[SERVER] INIT request received");
+                case KerberosAS_Constantes.INIT: System.out.println("[KERBEROS AS] INIT request received");
                     this.handleInit(req);
                     break;
                 default:
@@ -228,7 +228,6 @@ public class KerberosAS {
                 //les hashed parameters sont identiques
                 isConnected=true;
                 reponse=new Request(KerberosAS_Constantes.YES);
-                System.out.println("connected!");
                 
                 cleLongTerme=(CleDES) getKey(parameters.get(0));
                 cleSession= (CleDES)(Cle)CryptoManager.genereCle(algorithm);
@@ -254,22 +253,22 @@ public class KerberosAS {
                 
                 //récupère la clé du serveur avec ce client et crypte le ticket avec
                 cleServeur=(CleDES) getServerKey(parameters.get(0));
-                cipher.init(Cipher.ENCRYPT_MODE, ((CleDES)cleServeur).getCle());
                 
                 //deuxieme partie de la réponse: le ticket TGS
                 //{nom du client, son ip, validité du ticket, 
                 //cle de session} chiffré avec la clé du serveur
-                
                 TicketTGS ticketTGS=new TicketTGS(parameters.get(0), parameters.get(3),
-                        LocalDateTime.now().plusDays(VALIDITY_DAY).toLocalDate()); //définir la validité... 24h?
+                        LocalDateTime.now().plusDays(VALIDITY_DAY), cleSession); //définir la validité... 24h?
                 ArrayList<byte[]> secondPart=new ArrayList<>(1);
-                secondPart.add(ticketTGS.getCipherTicket(transformation, ((CleDES)cleSession).getCle()));
+                secondPart.add(ticketTGS.getCipherTicket(transformation, ((CleDES)cleServeur).getCle()));
                 
-                //l'ensemble des paramètres sur dans un arraylist
+                //l'ensemble des paramètres dans un arraylist
                 ArrayList<Object> answerParameters=new ArrayList<>(2);
                 answerParameters.add(firstPart);
                 answerParameters.add(secondPart);
                 reponse.setChargeUtile(answerParameters);
+                
+                System.out.println("[KERBEROS AS]successful!");
             }
         }
         catch (IOException | ClassNotFoundException | NoSuchProviderException | 
