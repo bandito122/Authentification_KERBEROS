@@ -1,8 +1,10 @@
 package ServeurCle;
 
 import GestionSocket.GestionSocket;
+import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
-import JavaLibrary.Crypto.DiffieHellman.DHClient;
+import JavaLibrary.Crypto.CryptoManager;
+import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import Network.Constants.Server_Cle_constants;
 import Network.Request;
@@ -34,8 +36,9 @@ public class Exemple_ClientCle {
     public static String KEY_TYPE="DES";
     public static String USERNAME="julien";
     public static String PWD="test";
-    public static String SAVING__DIR=System.getProperty("user.home")+System.getProperty("file.separator")+
-            "client_cle"+System.getProperty("file.separator")+"exemple_cle.key";
+    public static String SAVING__DIR=System.getProperty("user.home")+
+            System.getProperty("file.separator")+"client_cle"+
+            System.getProperty("file.separator")+"exemple_cle.key";
     
     public static void main(String[] args) {
         try {
@@ -44,10 +47,10 @@ public class Exemple_ClientCle {
             //SC doit écouter sur le port 6001
             Socket s=new Socket(HOST, PORT);
             System.out.println("[CLIENT] connected to server: sending DH ");
-            DHClient dh=new DHClient();
+            DiffieHellman dh=new DiffieHellman();
             GestionSocket gsocket=new GestionSocket(s);
             
-            //envoit demande de DH avec sa partie publique
+            //envoit demande de DiffieHellman avec sa partie publique
             Request r=new Request(Server_Cle_constants.DH);
             ArrayList<String> param=new ArrayList<>(2);
             param.add(USERNAME);
@@ -98,18 +101,19 @@ public class Exemple_ClientCle {
                 byte[] cipherKey=ByteUtils.toByteArray(cipherKeyObject);
                 byte[] plainKey=c.doFinal(cipherKey);
                 Cle cle=(Cle) ByteUtils.toObject2(plainKey);
+                
                 //sauvegarder la clé 
                 ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(SAVING__DIR));
                 oos.writeObject(cle);
                 oos.close();
                 
                 //test à comparer avec le serveur_clé
-                /*Chiffrement ch=(Chiffrement) CryptoManager.newInstance("DES");
+                Chiffrement ch=(Chiffrement) CryptoManager.newInstance("DES");
                 ch.init(cle);
                 String ciphertext=ch.crypte("Test nananan");
                 System.out.printf("texte chiffré: %s\n",ciphertext);
                 String plainText=ch.decrypte(ciphertext);
-                System.out.printf("text déchiffré: %s\n", plainText);*/
+                System.out.printf("text déchiffré: %s\n", plainText);
             } else {
                 System.out.println("[CLIENT]Answer is no");
                 System.out.printf("ERROR: received %d type!\n",r.getType());

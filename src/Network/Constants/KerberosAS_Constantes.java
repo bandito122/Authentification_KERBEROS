@@ -11,13 +11,12 @@ package Network.Constants;
  */
 public interface KerberosAS_Constantes {
     //constantes opérations
-    public static int FAIL=-1, YES=1, NO=2, INIT=3;
+    public static int FAIL=-1 //erreur interne au KerberosAS
+            , YES=1, NO=2 /*refus d'accès*/, INIT=3, QUIT=4;
     
     //messages d'erreurs constants
-    public static final String LOGINFAILED="passephrase de passe incorrect",
-            CMDFAILED="commande non-supportée", DHFAILED="erreur pendant le DiffieHellman",
-            //faire un String.format avant
-            KEYFAIL="Clé long terme pas trouvée où clé invalide",
-            OPNOTPERMITTED="ERROR: opération %s interdite "; 
+    public static final String USERNAME_NOT_FOUND="", TGS_NOT_FOUND="le TGS demandé est introuvable",
+            UNKNOWN_OPERATION="opération inconnue",
+            FAILURE="erreur interne au serveur";
     
 }

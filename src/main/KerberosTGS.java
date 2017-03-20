@@ -1,9 +1,11 @@
 package main;
 
 import GestionSocket.GestionSocket;
+import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
+import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import Kerberos.AuthenticatorCS;
@@ -44,14 +46,15 @@ public class KerberosTGS {
             SERVERKEY_FILE=DIRECTORY+"default_serverkey"+SERVER_EXT;
     
     private static final int VERSION=2;
-    private static String ENCODING="UTF-8";
-    private static long VALIDITY_DAY=1;
+    private static final String ENCODING="UTF-8";
+    private static final long VALIDITY_DAY=1;
     
     private Properties config, users;
     private boolean quit;
     private int port;
     private String provider, algorithm, cipherMode, padding, 
             transformation;
+    
     private SecurePasswordSha256 sp;
     private GestionSocket gsocket;
     private String name;
@@ -61,7 +64,7 @@ public class KerberosTGS {
         try {
             this.name=name;
             loadConfig();
-            loadKey();
+            loadKeys();
         } catch (IOException | NoSuchFieldException ex) {
             Logger.getLogger(KerberosAS.class.getName()).log(Level.SEVERE, null, ex);
             System.exit(-1);
@@ -79,17 +82,17 @@ public class KerberosTGS {
     
     private void loadConfig() throws IOException, NoSuchFieldException {
         //Check if properties exists
-        this.config=new Properties();
-        this.users=new Properties();
+        config=new Properties();
+        users=new Properties();
         
-        this.config.load(new FileInputStream(CONFIG_FILE));
-        this.users.load(new FileInputStream(USERS_FILE));
+        config.load(new FileInputStream(CONFIG_FILE));
+        users.load(new FileInputStream(USERS_FILE));
         
         String s_port=config.getProperty("port");
-        this.algorithm=config.getProperty("algorithm");
-        this.cipherMode=config.getProperty("cipher");
-        this.padding=config.getProperty("padding");
-        this.provider=config.getProperty("provider");
+        algorithm=config.getProperty("algorithm");
+        cipherMode=config.getProperty("cipher");
+        padding=config.getProperty("padding");
+        provider=config.getProperty("provider");
         if(algorithm==null || cipherMode==null || provider==null || padding==null || s_port==null) {
             throw new NoSuchFieldException();
         }
@@ -132,7 +135,7 @@ public class KerberosTGS {
                     break;
                 default:
                     Request r=new Request(KerberosAS_Constantes.FAIL);
-                    r.setChargeUtile(KerberosAS_Constantes.OPNOTPERMITTED);
+                    r.setChargeUtile(KerberosTGS_Constantes.OPNOTPERMITTED);
                     gsocket.Send(r);
             }
         }
@@ -142,22 +145,24 @@ public class KerberosTGS {
         ArrayList<Object> parameters=(ArrayList<Object>) r.getChargeUtile();
         try {
             //1er param=ACS
-            Cipher cipher=Cipher.getInstance("DES/ECB/PKCS5Padding");
-            cipher.init(Cipher.DECRYPT_MODE, ((CleDES)ktgs).getCle());
+            //Chiffrement ch_ktgs2=(Chiffrement) CryptoManager.newInstance(algorithm);
+            Cipher ch_ktgs=Cipher.getInstance(transformation);
+            ch_ktgs.init(Cipher.DECRYPT_MODE, ((CleDES)ktgs).getCle());
 
             //Le serveur décrypte avec sa clé symétrique le ticket et en extrait la clé de session
             //2eme param=TGS
-            TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject2(cipher.doFinal((byte[]) parameters.get(1)));
+            TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject2(ch_ktgs.doFinal((byte[]) parameters.get(1)));
             kctgs=ticketTGS.cleSession;
             
              //la clé de session sert à déchiffer l'authentificateur 
-            cipher.init(Cipher.DECRYPT_MODE, ((CleDES)kctgs).getCle());
-            AuthenticatorCS acs=(AuthenticatorCS) ByteUtils.toObject2(cipher.doFinal((byte[]) parameters.get(0)));
+            ch_ktgs.init(Cipher.DECRYPT_MODE, ((CleDES)kctgs).getCle());
+            AuthenticatorCS acs=(AuthenticatorCS) 
+                    ByteUtils.toObject2(ch_ktgs.doFinal((byte[]) parameters.get(0)));
             
             //il faudrait vérifier les informations reçues
             
             //Envoyer au client la réponse
-            cipher.init(Cipher.ENCRYPT_MODE, ((CleDES)kctgs).getCle());
+            ch_ktgs.init(Cipher.ENCRYPT_MODE, ((CleDES)kctgs).getCle());
             ArrayList<Object> paramReponse=new ArrayList<>(2);
             ArrayList<Object> firstPart=new ArrayList<>(4);
             ArrayList<Object> secondPart=new ArrayList<>(4);
@@ -167,19 +172,19 @@ public class KerberosTGS {
             //générer une clé de session client-serveur
             kcs=CryptoManager.genereCle(algorithm);
             ((CleDES)kcs).generateNew();
-            firstPart.add(cipher.doFinal(ByteUtils.toByteArray(kcs)));
+            firstPart.add(ch_ktgs.doFinal(ByteUtils.toByteArray(kcs)));
             //envoyer la version
             ByteBuffer bb=ByteBuffer.allocate(4);
             bb.putInt(VERSION);
-            firstPart.add(cipher.doFinal(bb.array()));
+            firstPart.add(ch_ktgs.doFinal(bb.array()));
             //le nom du serveur à atteindre
-            firstPart.add(cipher.doFinal("default".getBytes(ENCODING)));
-            firstPart.add(cipher.doFinal(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:00")).getBytes(ENCODING)));
+            firstPart.add(ch_ktgs.doFinal("default".getBytes(ENCODING)));
+            firstPart.add(ch_ktgs.doFinal(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:00")).getBytes(ENCODING)));
             
             //Chiffrer avec la clé du serveur
-            cipher.init(Cipher.ENCRYPT_MODE, ((CleDES)ks).getCle());
+            ch_ktgs.init(Cipher.ENCRYPT_MODE, ((CleDES)ks).getCle());
             ticketTGS=new TicketTGS(acs.client, "localhost:6004", LocalDateTime.now().plusDays(VALIDITY_DAY), kcs);
-            secondPart.add(cipher.doFinal(ByteUtils.toByteArray(ticketTGS)));
+            secondPart.add(ch_ktgs.doFinal(ByteUtils.toByteArray(ticketTGS)));
             
             //ajouter les deux listes à la liste de paramètre de la réponse
             paramReponse.add(firstPart);
@@ -192,13 +197,13 @@ public class KerberosTGS {
         }
     }
 
-    private void loadKey() throws IOException, ClassNotFoundException {
+    private void loadKeys() throws IOException, ClassNotFoundException {
         ObjectInputStream ois=new ObjectInputStream(new FileInputStream(KEY_FILE));
-        this.ktgs=(Cle) ois.readObject();
+        ktgs=(Cle) ois.readObject();
         ois.close();
         
         ois=new ObjectInputStream(new FileInputStream(SERVERKEY_FILE));
-        this.ks=(Cle) ois.readObject();
+        ks=(Cle) ois.readObject();
         ois.close();
     }
 }

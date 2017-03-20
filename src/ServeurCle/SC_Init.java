@@ -1,12 +1,14 @@
 package ServeurCle;
 
 import GestionSocket.GestionSocket;
-import JavaLibrary.Crypto.DiffieHellman.DHServer;
+import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import Network.Constants.Server_Cle_constants;
 import Network.Request;
 import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import main.Serveur_Cle;
 
@@ -33,13 +35,14 @@ public class SC_Init extends SC_State {
                 r=new Request(Server_Cle_constants.YES);
                 System.out.println("connected!");
                 
-                //instancier DH server
-                sc.setDh(new DHServer());
+                //instancier DiffieHellman server
+                sc.setDh(new DiffieHellman());
                 
                 //si ok, passer à l'état suivant
                 sc.setActualState(new SC_DH(gsocket, sc));
             }
-        } catch (NoSuchAlgorithmException | NoSuchProviderException | IOException ex) {            
+        } catch (NoSuchAlgorithmException | NoSuchProviderException | IOException |
+                InvalidParameterSpecException | InvalidAlgorithmParameterException e) {            
             //La connexion échoue ne rien faire
         } finally {
             if(!isConnected) { //si la connexion à échouer

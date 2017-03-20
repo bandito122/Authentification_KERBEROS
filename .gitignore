@@ -1,1 +1,18 @@
+# fichiers de compilation
+*.class
+#Directories 
 /build/
+/dist/
+./nbproject/private/
+
+#Windows image file caches
+Thumbs.db
+#Apple cache file
+.DS_Store
+
+#Folder config File
+Desktop.ini
+
+#Files that might appear on external Disk
+.Spotlight-V100
+.Trashes
