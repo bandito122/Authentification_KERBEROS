@@ -1,13 +1,13 @@
 package ServeurCle;
 
-import GestionSocket.GestionSocket;
 import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
+import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
-import Network.Constants.Server_Cle_constants;
-import Network.Request;
+import JavaLibrary.Network.GestionSocket;
+import JavaLibrary.Network.NetworkPacket;
 import Utils.ByteUtils;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -20,12 +20,9 @@ import java.security.NoSuchProviderException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 
 /*
  * @author Julien
@@ -46,37 +43,35 @@ public class Exemple_ClientCle {
             
             //SC doit écouter sur le port 6001
             Socket s=new Socket(HOST, PORT);
-            System.out.println("[CLIENT] connected to server: sending DH ");
+            System.out.println("[CLIENT] connected to server: sending Init ");
             DiffieHellman dh=new DiffieHellman();
             GestionSocket gsocket=new GestionSocket(s);
             
             //envoit demande de DiffieHellman avec sa partie publique
-            Request r=new Request(Server_Cle_constants.DH);
-            ArrayList<String> param=new ArrayList<>(2);
-            param.add(USERNAME);
-            param.add(sp.getHashedPassword());
-            param.add(sp.getSalt());
-            r.setChargeUtile(param);
+            NetworkPacket r=new NetworkPacket(SC_CST.INIT);
+            r.add(SC_CST.USERNAME,USERNAME);
+            r.add(SC_CST.SALT, sp.getSalt());
+            r.add(SC_CST.PWD, sp.getHashedPassword());
             gsocket.Send(r);
             
-            r=(Request) gsocket.Receive();
-            if(r.getType()==Server_Cle_constants.YES) {
-                System.out.printf("User %s is connected\n", USERNAME);
+            r=(NetworkPacket) gsocket.Receive();
+            if(r.getType()==SC_CST.YES) {
+                System.out.printf("[CLIENT]User %s is connected\n", USERNAME);
             } else {
-                System.out.printf("User %s is NOT connected\n",USERNAME);
+                System.out.printf("[CLIENT]User %s is NOT connected\n",USERNAME);
             }
             
             //envoi sa clé publique
             System.out.println("[CLIENT]Sending public key");
-            r=new Request(Server_Cle_constants.DHPK);
-            r.setChargeUtile(ByteUtils.toObject(dh.getPublicKey().getEncoded()));
+            r=new NetworkPacket(SC_CST.DHPK);
+            r.add(SC_CST.PK, dh.getPublicKey().getEncoded());
             gsocket.Send(r);
             System.out.println("[CLIENT]Server public key received");
             
             //lit la partie publique du serveur
-            r=(Request) gsocket.Receive();
-            if(r.getType()==Server_Cle_constants.DHPK) {
-                byte[] serverPK=ByteUtils.toByteArray((ArrayList<Byte>) r.getChargeUtile());
+            r=(NetworkPacket) gsocket.Receive();
+            if(r.getType()==SC_CST.YES) {
+                byte[] serverPK=(byte[]) r.get(SC_CST.PK);
                 dh.setPublicKey(serverPK);
             } else {
                 //erreur
@@ -86,21 +81,22 @@ public class Exemple_ClientCle {
             
             //la DJH est fait: faut demander la clé Long Terme du serveur AS
             System.out.println("[CLIENT]Sending Get KEY ");
-            r=new Request(Server_Cle_constants.GETKEY);
-            r.setChargeUtile(USERNAME);
+            r=new NetworkPacket(SC_CST.GETKEY);
+            r.add(SC_CST.USERNAME, USERNAME);
             gsocket.Send(r);
             
             //recevoir la clé
-            r=(Request) gsocket.Receive();
+            r=(NetworkPacket) gsocket.Receive();
             System.out.println("[CLIENT]Answer received");
-            if(r.getType()==Server_Cle_constants.YES) {
+            if(r.getType()==SC_CST.YES) {
                 System.out.println("[CLIENT]Answer is yes");
-                Cipher c=Cipher.getInstance("DES/ECB/PKCS5Padding");
-                c.init(Cipher.DECRYPT_MODE, dh.getSecretKey());
-                ArrayList<Byte> cipherKeyObject=(ArrayList<Byte>) r.getChargeUtile();
-                byte[] cipherKey=ByteUtils.toByteArray(cipherKeyObject);
-                byte[] plainKey=c.doFinal(cipherKey);
-                Cle cle=(Cle) ByteUtils.toObject2(plainKey);
+                //chiffrement avec une clé générée par le DH
+                Chiffrement chDHKey=(Chiffrement) CryptoManager.newInstance("DES");
+                chDHKey.init(new CleDES(dh.getSecretKey()));
+                byte[] cipherKey=(byte[]) r.get(SC_CST.SECRETKEY);
+                System.out.printf("[CLIENT]Clé chiffrée: longueur %d bytes\n",cipherKey.length);
+                byte[] plainKey=chDHKey.decrypte(cipherKey);
+                Cle cle=(Cle) ByteUtils.toObject(plainKey);
                 
                 //sauvegarder la clé 
                 ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(SAVING__DIR));
@@ -108,11 +104,12 @@ public class Exemple_ClientCle {
                 oos.close();
                 
                 //test à comparer avec le serveur_clé
-                Chiffrement ch=(Chiffrement) CryptoManager.newInstance("DES");
-                ch.init(cle);
-                String ciphertext=ch.crypte("Test nananan");
-                System.out.printf("texte chiffré: %s\n",ciphertext);
-                String plainText=ch.decrypte(ciphertext);
+                Chiffrement chLongTermKey=(Chiffrement) CryptoManager.newInstance("DES");
+                chLongTermKey.init(cle);
+                String ciphertext=chLongTermKey.crypte("Test nananan");
+                System.out.printf("texte chiffré: %s\n", Arrays.toString(ciphertext.getBytes()));
+                String plainText=chLongTermKey.decrypte(ciphertext);
+                System.out.printf("text déchiffré: %s\n", Arrays.toString(plainText.getBytes()));
                 System.out.printf("text déchiffré: %s\n", plainText);
             } else {
                 System.out.println("[CLIENT]Answer is no");
@@ -120,12 +117,12 @@ public class Exemple_ClientCle {
             }
             
             //recçoit 
-        } catch (IOException | InvalidParameterSpecException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | 
-                NoSuchProviderException | InvalidKeySpecException | InvalidKeyException | IllegalBlockSizeException | 
-                BadPaddingException | NoSuchPaddingException | ClassNotFoundException ex) {
+        } catch (IOException | InvalidParameterSpecException | NoSuchAlgorithmException | 
+                InvalidAlgorithmParameterException | NoSuchProviderException | 
+                InvalidKeySpecException | InvalidKeyException | ClassNotFoundException ex) {
             Logger.getLogger(Exemple_ClientCle.class.getName()).log(Level.SEVERE, null, ex);
         } catch(Exception e) {
-            System.out.printf("[CLIENT]EXCEPTIONNNN : %s\n", e.getMessage());
+            System.out.printf("[CLIENT]EXCEPTION: %s: %s\n",e.getClass(), e.getMessage());
         }
     }
 }

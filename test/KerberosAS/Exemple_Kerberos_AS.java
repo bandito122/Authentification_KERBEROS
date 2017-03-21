@@ -1,14 +1,12 @@
 package KerberosAS;
 
-import GestionSocket.GestionSocket;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.HMAC.HMAC;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
+import JavaLibrary.Network.GestionSocket;
+import JavaLibrary.Network.NetworkPacket;
 import Kerberos.AuthenticatorCS;
-import Network.Constants.KerberosAS_Constantes;
-import Network.Constants.KerberosTGS_Constantes;
-import Network.Request;
 import Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,6 +27,8 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import Kerberos.KAS_CST;
+import Kerberos.KTGS_CST;
 
 /*
  * @author Julien
@@ -102,14 +102,14 @@ public class Exemple_Kerberos_AS {
         //pas de chiffrage au premier message, le serveur AS ne nous connaît pas encore
         
         //construire objet request
-        Request r=new Request(KerberosAS_Constantes.INIT);
+        NetworkPacket r=new NetworkPacket(KAS_CST.INIT);
         r.setChargeUtile(parameters);
         //envoyer
         gsocket_AS.Send(r);
         
         //lire la réponse
-        r=(Request) gsocket_AS.Receive();
-        if(r.getType()==KerberosAS_Constantes.YES) {
+        r=(NetworkPacket) gsocket_AS.Receive();
+        if(r.getType()==KAS_CST.YES) {
             //OK
             System.out.printf("[CLIENT]User %s connecté!\n",USERNAME);
             cipher.init(Cipher.DECRYPT_MODE, ((CleDES)Kc).getCle( ));
@@ -118,13 +118,13 @@ public class Exemple_Kerberos_AS {
             ArrayList<byte[]> secondPartAS=(ArrayList<byte[]>) paramAS.get(1);
             
             //première partie
-            Kctgs=(Cle) ByteUtils.toObject2(cipher.doFinal(firstPartAS.get(0)));
+            Kctgs=(Cle) ByteUtils.toObject(cipher.doFinal(firstPartAS.get(0)));
             ByteBuffer bb=ByteBuffer.allocate(4);
             int version=ByteBuffer.wrap(cipher.doFinal(firstPartAS.get(1))).getInt();
             String tgServerAddr=new String(cipher.doFinal(firstPartAS.get(2)), ENCODING);            
             
             //quitter la connexion au KerberosAS
-            r.setType(KerberosAS_Constantes.QUIT);
+            r.setType(KAS_CST.QUIT);
             r.setChargeUtile("");
             gsocket_AS.Send(r);
         } else {
@@ -153,7 +153,7 @@ public class Exemple_Kerberos_AS {
         AuthenticatorCS acs=new AuthenticatorCS(USERNAME, 
                 LocalDateTime.now(), hmac.ToString());
 
-        Request tgsReq=new Request(KerberosTGS_Constantes.INIT);
+        NetworkPacket tgsReq=new NetworkPacket(KTGS_CST.INIT);
 
         //Connexion au serveur TGS
         Socket s=new Socket(HOST, PORT_TGS);
@@ -169,13 +169,13 @@ public class Exemple_Kerberos_AS {
         tgsReq.setChargeUtile(tgsParam);
 
         gsocket_TGS.Send(tgsReq);
-        Request reponse2=(Request) gsocket_TGS.Receive();
+        NetworkPacket reponse2=(NetworkPacket) gsocket_TGS.Receive();
         cipher.init(Cipher.DECRYPT_MODE, ((CleDES)Kctgs).getCle());
         paramAS=(ArrayList<Object>) reponse2.getChargeUtile();
         
         //premiere partie est chiffrée par kctgs
         firstPartAS=(ArrayList<byte[]>) paramAS.get(0);
-        Cle kcs=(Cle) ByteUtils.toObject2(cipher.doFinal(
+        Cle kcs=(Cle) ByteUtils.toObject(cipher.doFinal(
                 firstPartAS.get(0)));
         int version=ByteBuffer.wrap(
                 cipher.doFinal(firstPartAS.get(1))).getInt();
@@ -192,7 +192,7 @@ public class Exemple_Kerberos_AS {
 
     private static void stop() {
         try {
-            Request r=new Request(KerberosAS_Constantes.QUIT);
+            NetworkPacket r=new NetworkPacket(KAS_CST.QUIT);
             r.setChargeUtile("");
             gsocket_AS.Send(r);
             s.close();

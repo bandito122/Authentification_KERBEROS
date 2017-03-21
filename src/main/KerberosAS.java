@@ -8,8 +8,7 @@ import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import Kerberos.TicketTGS;
-import Network.Constants.KerberosAS_Constantes;
-import Network.Request;
+import Network.NetworkPacket;
 import Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -32,6 +31,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import Kerberos.KAS_CST;
 
 /*
  * @author Julien
@@ -194,35 +194,35 @@ public class KerberosAS {
         gsocket=new GestionSocket(clientSocket);
 
         while(!quit) {
-            Request req=(Request) gsocket.Receive();
+            NetworkPacket req=(NetworkPacket) gsocket.Receive();
             if(req==null) {
                 break;
             }
             switch(req.getType()) {
-                case KerberosAS_Constantes.INIT: 
+                case KAS_CST.INIT: 
                     System.out.println("[KERBEROS AS] INIT request received");
                     this.handleInit(req);
                     break;
-                case KerberosAS_Constantes.QUIT:
+                case KAS_CST.QUIT:
                     System.out.println("[KERBEROS AS] QUIT request received");
                     gsocket.Close();
                     quit=true;
                     break;
                 default:
-                    Request r=new Request(KerberosAS_Constantes.FAIL);
-                    r.setChargeUtile(KerberosAS_Constantes.UNKNOWN_OPERATION);
+                    NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);
+                    r.setChargeUtile(KAS_CST.UNKNOWN_OPERATION);
                     gsocket.Send(r);
             }
         }
         System.out.println("[KERBEROS AS]Bye bye!");
     }
 
-    private void handleInit(Request r) throws NoSuchPaddingException {
+    private void handleInit(NetworkPacket r) throws NoSuchPaddingException {
         //récupérer les paramètres
         ArrayList<String> parameters=(ArrayList<String>) r.getChargeUtile();
             
         Cle Kc, Kctgs, Ktgs;
-        Request reponse=new Request(0);
+        NetworkPacket reponse=new NetworkPacket(0);
         
         try {            
             String tgServerAddr=getTGServer(parameters.get(4));
@@ -236,7 +236,7 @@ public class KerberosAS {
                     parameters.get(5));
             if(isConnected && tgsFound) {
                 //les hashed parameters sont identiques
-                reponse.setType(KerberosAS_Constantes.YES);
+                reponse.setType(KAS_CST.YES);
                 
                 Kc=(CleDES) getKey(parameters.get(0));
                 Kctgs= (CleDES)(Cle)CryptoManager.genereCle(algorithm);
@@ -272,15 +272,15 @@ public class KerberosAS {
                 
                 System.out.println("[KERBEROS AS]successful!");
             } else { // si user pas connected où si serveur tgs demandé pas trouvé: accès refusé
-                reponse.setType(KerberosAS_Constantes.NO);
+                reponse.setType(KAS_CST.NO);
                 if(!isConnected) {//clé d'utilisateur pas trouvé
-                    reponse.setChargeUtile(KerberosAS_Constantes.USERNAME_NOT_FOUND);
+                    reponse.setChargeUtile(KAS_CST.USERNAME_NOT_FOUND);
                     System.err.printf("[KERBEROS AS]Username: %s : %s\n", parameters.get(0), 
-                            KerberosAS_Constantes.USERNAME_NOT_FOUND);
+                            KAS_CST.USERNAME_NOT_FOUND);
                 } else if(!tgsFound) { //serveur tgs pas trouvé
-                    reponse.setChargeUtile(KerberosAS_Constantes.TGS_NOT_FOUND);
+                    reponse.setChargeUtile(KAS_CST.TGS_NOT_FOUND);
                     System.err.printf("[KERBEROS AS]Targetted TGS: %s : %s\n", parameters.get(4), 
-                            KerberosAS_Constantes.TGS_NOT_FOUND);
+                            KAS_CST.TGS_NOT_FOUND);
                 }
             }
         }
@@ -290,8 +290,8 @@ public class KerberosAS {
                 IllegalBlockSizeException | BadPaddingException | NullPointerException 
                 ex) {
             Logger.getLogger(KerberosAS.class.getName()).log(Level.SEVERE, null, ex);
-            reponse.setType(KerberosAS_Constantes.FAIL);
-            reponse.setChargeUtile(KerberosAS_Constantes.FAILURE+" : "+ex.getMessage());
+            reponse.setType(KAS_CST.FAIL);
+            reponse.setChargeUtile(KAS_CST.FAILURE+" : "+ex.getMessage());
         } finally {            
             gsocket.Send(reponse);
         }

@@ -1,5 +1,6 @@
 package main;
-import GestionSocket.GestionSocket;
+import JavaLibrary.Crypto.ChiffreImpl.ChiffreDES;
+import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
@@ -7,7 +8,8 @@ import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
-import Network.Constants.Server_Cle_constants;
+import JavaLibrary.Network.GestionSocket;
+import JavaLibrary.Network.NetworkPacket;
 import ServeurCle.SC_State;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -18,13 +20,14 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
-import Network.Request;
-import ServeurCle.SC_Init;
+import ServeurCle.SC_Init_State;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.security.NoSuchProviderException;
+import ServeurCle.SC_CST;
+import javax.crypto.SecretKey;
 /*
  * @author Julien
  * Représente le Serveur_Clé que contact l'Application_Admin pour avoir sa clé long terme 
@@ -55,6 +58,7 @@ public class Serveur_Cle {
     private String provider, algorithm, cipher, padding;
     private DiffieHellman dh;
     private SC_State actualState;
+    private Chiffrement ch;
     
     public Serveur_Cle() {
         try {
@@ -99,21 +103,22 @@ public class Serveur_Cle {
                 clientSocket.getInetAddress().toString(), clientSocket.getPort());
         
         GestionSocket gs=new GestionSocket(clientSocket);
-        actualState=new SC_Init(gs, this);
+        actualState=new SC_Init_State(gs, this);
         
         while(!quit) {
-            Request req=(Request) gs.Receive();
+            NetworkPacket req=(NetworkPacket) gs.Receive();
             if(req==null) {
                 break;
             }
+            //dispatch les requêtes
             switch(req.getType()) {
-                case Server_Cle_constants.DH: System.out.println("[SERVER] DH request received");
-                    actualState.instantiate_DH(req);
+                case SC_CST.INIT: System.out.println("[SERVER] DH request received");
+                    actualState.init_step(req);
                     break;
-                case Server_Cle_constants.DHPK: System.out.println("[SERVER]DHPK request received");
-                    actualState.DH_SetPublicKey(req);
+                case SC_CST.DHPK: System.out.println("[SERVER]DHPK request received");
+                    actualState.DHPK_step(req);
                     break;
-                case Server_Cle_constants.GETKEY:  System.out.println("[SERVER]GET KEY received"); 
+                case SC_CST.GETKEY:  System.out.println("[SERVER]GET KEY received"); 
                     actualState.get_key(req);
                     break;
                 default: actualState.OperationNotPermitted(String.valueOf(req.getType()));
@@ -126,7 +131,7 @@ public class Serveur_Cle {
     }
     
     private void loadConfig() throws NoSuchFieldException, IOException {
-        //Check if properties exists
+        //charge les paramètres de configuration
         config=new Properties();
         users=new Properties();
         config.load(new FileInputStream(CONFIG_FILE));
@@ -145,6 +150,8 @@ public class Serveur_Cle {
         
         port=Integer.valueOf(s_port);
     }
+    
+    //charge une clé secrète à partir d'un fichier
     private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
         ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+EXT));
         Cle c=(Cle) ois.readObject();
@@ -152,6 +159,7 @@ public class Serveur_Cle {
         return c;
     }
     
+    //crée une clé secrète et l'enregistre dans un fichier
     private Cle createKey(String username) throws NoSuchChiffrementException, IOException, 
             NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
         Cle k = (Cle) CryptoManager.genereCle(algorithm);
@@ -163,11 +171,13 @@ public class Serveur_Cle {
         return k;
     }
     
+    //permet de récupérer la clé d'un utilisateur
+    //le format du nom de fichier est "username.key"
     public Cle getKey(String keyUser) throws IOException, ClassNotFoundException, NoSuchProviderException,
             NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException {
         Cle c;
         try {
-            c=loadKey(keyUser);
+            c=loadKey(keyUser); //si la clé existe, on la charge à partir du fichier
         } catch(FileNotFoundException e) {
             //fichier non trouvé=il faut la créer puis la sauvegarder
             c=createKey(keyUser);
@@ -176,8 +186,10 @@ public class Serveur_Cle {
         return c;
     }
     
-    
-    public boolean connectUser(String username, String salt, String receivedPassword) throws IOException {
+    //permet de vérifier si un mot de passe à partir d'un username, un "salement"
+    //de mot de passe envoyé par l'utilisateur et un password "digesté"
+    public boolean connectUser(String username, String salt, String receivedPassword) 
+            throws IOException {
         boolean passwordMatch=false;
         try {
             String password=users.getProperty(username); //retourne NULL si le user n'existe pas
@@ -224,5 +236,14 @@ public class Serveur_Cle {
     
     public static void main(String[] args) {
         Serveur_Cle sc=new Serveur_Cle();
+    }
+
+    public Chiffrement getChiffrement() {
+        return ch;
+    }
+
+    public void createChiffrement(SecretKey sk) throws NoSuchChiffrementException {
+        ch=(ChiffreDES) CryptoManager.newInstance(getAlgorithm());
+        ch.init(new CleDES(sk));
     }
 }

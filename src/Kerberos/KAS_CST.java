@@ -3,13 +3,13 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package Network.Constants;
+package Kerberos;
 
 /**
  *
  * @author Julien
  */
-public interface KerberosAS_Constantes {
+public interface KAS_CST {
     //constantes opérations
     public static int FAIL=-1 //erreur interne au KerberosAS
             , YES=1, NO=2 /*refus d'accès*/, INIT=3, QUIT=4;

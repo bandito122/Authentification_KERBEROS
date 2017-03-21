@@ -3,13 +3,13 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package Network.Constants;
+package Kerberos;
 
 /**
  *
  * @author Julien
  */
-public interface KerberosTGS_Constantes {
+public interface KTGS_CST {
      //constantes opérations
     public static int FAIL=-1, YES=1, NO=2, INIT=3;
     

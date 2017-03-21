@@ -10,9 +10,7 @@ import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import Kerberos.AuthenticatorCS;
 import Kerberos.TicketTGS;
-import Network.Constants.KerberosAS_Constantes;
-import Network.Constants.KerberosTGS_Constantes;
-import Network.Request;
+import Network.NetworkPacket;
 import Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -33,6 +31,8 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import Kerberos.KAS_CST;
+import Kerberos.KTGS_CST;
 
 /*
  * @author Julien
@@ -125,23 +125,23 @@ public class KerberosTGS {
         gsocket=new GestionSocket(clientSocket);
         
         while(!quit) {
-            Request req=(Request) gsocket.Receive();
+            NetworkPacket req=(NetworkPacket) gsocket.Receive();
             if(req==null) {
                 break;
             }
             switch(req.getType()) {
-                case KerberosTGS_Constantes.INIT: System.out.println("[KERBEROS TGS] INIT request received");
+                case KTGS_CST.INIT: System.out.println("[KERBEROS TGS] INIT request received");
                     HandleInit(req);
                     break;
                 default:
-                    Request r=new Request(KerberosAS_Constantes.FAIL);
-                    r.setChargeUtile(KerberosTGS_Constantes.OPNOTPERMITTED);
+                    NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);
+                    r.setChargeUtile(KTGS_CST.OPNOTPERMITTED);
                     gsocket.Send(r);
             }
         }
     }
 
-    private void HandleInit(Request r) {
+    private void HandleInit(NetworkPacket r) {
         ArrayList<Object> parameters=(ArrayList<Object>) r.getChargeUtile();
         try {
             //1er param=ACS
@@ -151,13 +151,13 @@ public class KerberosTGS {
 
             //Le serveur décrypte avec sa clé symétrique le ticket et en extrait la clé de session
             //2eme param=TGS
-            TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject2(ch_ktgs.doFinal((byte[]) parameters.get(1)));
+            TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject(ch_ktgs.doFinal((byte[]) parameters.get(1)));
             kctgs=ticketTGS.cleSession;
             
              //la clé de session sert à déchiffer l'authentificateur 
             ch_ktgs.init(Cipher.DECRYPT_MODE, ((CleDES)kctgs).getCle());
             AuthenticatorCS acs=(AuthenticatorCS) 
-                    ByteUtils.toObject2(ch_ktgs.doFinal((byte[]) parameters.get(0)));
+                    ByteUtils.toObject(ch_ktgs.doFinal((byte[]) parameters.get(0)));
             
             //il faudrait vérifier les informations reçues
             
@@ -166,7 +166,7 @@ public class KerberosTGS {
             ArrayList<Object> paramReponse=new ArrayList<>(2);
             ArrayList<Object> firstPart=new ArrayList<>(4);
             ArrayList<Object> secondPart=new ArrayList<>(4);
-            Request reponse=new Request(KerberosTGS_Constantes.YES);
+            NetworkPacket reponse=new NetworkPacket(KTGS_CST.YES);
             
             //Chiffrer avec la clé de session Kc,tgs
             //générer une clé de session client-serveur

@@ -1,8 +1,7 @@
 package ServeurCle;
 
-import GestionSocket.GestionSocket;
-import Network.Constants.Server_Cle_constants;
-import Network.Request;
+import JavaLibrary.Network.GestionSocket;
+import JavaLibrary.Network.NetworkPacket;
 import main.Serveur_Cle;
 
 /*
@@ -19,21 +18,21 @@ public abstract class SC_State {
         this.sc=sc;
     }
     
-    public void instantiate_DH(Request r) {
+    public void init_step(NetworkPacket r) {
         this.OperationNotPermitted("instantiate_DH");
     }
     
-    public void DH_SetPublicKey(Request r) {
+    public void DHPK_step(NetworkPacket r) {
         this.OperationNotPermitted("DH_SetPublicKey");
     }
     
-    public void get_key(Request r) {
+    public void get_key(NetworkPacket r) {
         this.OperationNotPermitted("get_key");
     }
     
     public void OperationNotPermitted(String operation) {
-        Request r=new Request(Server_Cle_constants.FAIL);
-        r.setChargeUtile(String.format(Server_Cle_constants.OPNOTPERMITTED, operation));
+        NetworkPacket r=new NetworkPacket(SC_CST.FAIL);
+        r.add(SC_CST.MSG, String.format(SC_CST.OPNOTPERMITTED, operation));
         gsocket.Send(r);
     }
 }
