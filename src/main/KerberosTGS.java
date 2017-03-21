@@ -1,17 +1,15 @@
 package main;
 
-import GestionSocket.GestionSocket;
-import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
-import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
+import JavaLibrary.Network.GestionSocket;
+import JavaLibrary.Network.NetworkPacket;
 import Kerberos.AuthenticatorCS;
 import Kerberos.TicketTGS;
-import Network.NetworkPacket;
-import Utils.ByteUtils;
+import JavaLibrary.Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -135,14 +133,14 @@ public class KerberosTGS {
                     break;
                 default:
                     NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);
-                    r.setChargeUtile(KTGS_CST.OPNOTPERMITTED);
+                    //r.setChargeUtile(KTGS_CST.OPNOTPERMITTED);
                     gsocket.Send(r);
             }
         }
     }
 
     private void HandleInit(NetworkPacket r) {
-        ArrayList<Object> parameters=(ArrayList<Object>) r.getChargeUtile();
+        ArrayList<Object> parameters=(ArrayList<Object>) r.get("");
         try {
             //1er param=ACS
             //Chiffrement ch_ktgs2=(Chiffrement) CryptoManager.newInstance(algorithm);
@@ -189,7 +187,7 @@ public class KerberosTGS {
             //ajouter les deux listes à la liste de paramètre de la réponse
             paramReponse.add(firstPart);
             paramReponse.add(secondPart);
-            reponse.setChargeUtile(paramReponse);
+            //reponse.setChargeUtile(paramReponse);
             gsocket.Send(reponse);
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IOException | 
                 ClassNotFoundException | IllegalBlockSizeException | BadPaddingException | NoSuchProviderException | NoSuchCleException ex) {

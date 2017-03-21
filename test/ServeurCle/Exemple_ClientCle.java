@@ -6,9 +6,10 @@ import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
+import JavaLibrary.Network.CipherGestionSocket;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
-import Utils.ByteUtils;
+import JavaLibrary.Utils.ByteUtils;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -19,7 +20,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -80,24 +80,23 @@ public class Exemple_ClientCle {
             }
             
             //la DJH est fait: faut demander la clé Long Terme du serveur AS
+            Chiffrement chDHKey=(Chiffrement) CryptoManager.newInstance("DES");
+            chDHKey.init(new CleDES(dh.getSecretKey()));
+            //grâce à CipherGestionSocket la transition entre flux chiffré ou non se fait
+            //simplement via un changement de type de GestionSocket
+            CipherGestionSocket ciphergs=new CipherGestionSocket(s, chDHKey);
             System.out.println("[CLIENT]Sending Get KEY ");
             r=new NetworkPacket(SC_CST.GETKEY);
             r.add(SC_CST.USERNAME, USERNAME);
-            gsocket.Send(r);
+            ciphergs.Send(r);
             
             //recevoir la clé
-            r=(NetworkPacket) gsocket.Receive();
+            r=(NetworkPacket) ciphergs.Receive();
             System.out.println("[CLIENT]Answer received");
             if(r.getType()==SC_CST.YES) {
                 System.out.println("[CLIENT]Answer is yes");
-                //chiffrement avec une clé générée par le DH
-                Chiffrement chDHKey=(Chiffrement) CryptoManager.newInstance("DES");
-                chDHKey.init(new CleDES(dh.getSecretKey()));
-                byte[] cipherKey=(byte[]) r.get(SC_CST.SECRETKEY);
-                System.out.printf("[CLIENT]Clé chiffrée: longueur %d bytes\n",cipherKey.length);
-                byte[] plainKey=chDHKey.decrypte(cipherKey);
-                Cle cle=(Cle) ByteUtils.toObject(plainKey);
-                
+                //récupère la clé
+                Cle cle=(Cle) r.get(SC_CST.SECRETKEY);
                 //sauvegarder la clé 
                 ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(SAVING__DIR));
                 oos.writeObject(cle);
@@ -115,14 +114,13 @@ public class Exemple_ClientCle {
                 System.out.println("[CLIENT]Answer is no");
                 System.out.printf("ERROR: received %d type!\n",r.getType());
             }
-            
-            //recçoit 
         } catch (IOException | InvalidParameterSpecException | NoSuchAlgorithmException | 
                 InvalidAlgorithmParameterException | NoSuchProviderException | 
-                InvalidKeySpecException | InvalidKeyException | ClassNotFoundException ex) {
+                InvalidKeySpecException | InvalidKeyException ex) {
             Logger.getLogger(Exemple_ClientCle.class.getName()).log(Level.SEVERE, null, ex);
         } catch(Exception e) {
             System.out.printf("[CLIENT]EXCEPTION: %s: %s\n",e.getClass(), e.getMessage());
+            Logger.getLogger(Exemple_ClientCle.class.getName()).log(Level.SEVERE, null, e);
         }
     }
 }

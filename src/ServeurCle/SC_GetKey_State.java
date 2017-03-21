@@ -7,7 +7,6 @@ import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
 import main.Serveur_Cle;
-import Utils.ByteUtils;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -25,21 +24,20 @@ public class SC_GetKey_State extends SC_State {
  
     @Override
     public void get_key(NetworkPacket r) {
+        Chiffrement ch=sc.getChiffrement();
         try {
             //récupérer la clé dans un fichier .key
             Cle cle=sc.getKey((String)r.get(SC_CST.USERNAME));
             
             //Chiffrer l'objet Clé
-            /*Cipher c=Cipher.getInstance(sc.getAlgorithm()+'/'+sc.getCipher()+'/'
-                    +sc.getPadding());
-            c.init(Cipher.ENCRYPT_MODE, sc.getDh().getSecretKey());*/
-            Chiffrement ch=sc.getChiffrement();
-            //byte[] cipherKey=c.doFinal(ByteUtils.toByteArray((Object)cle));
-            byte[] cipherKey=ch.crypte(ByteUtils.toByteArray((Object) cle));
-            System.out.printf("[SERVER]Clé chiffrée: longueur %d bytes\n",cipherKey.length);
+            //byte[] cipherKey=ch.crypte(ByteUtils.toByteArray((Object) cle));
+            //System.out.printf("[SERVER]Clé chiffrée: longueur %d bytes\n",cipherKey.length);
             //envoyer la clé chiffrée
-            r=new NetworkPacket(SC_CST.YES);
+            /*r=new NetworkPacket(SC_CST.YES);
             r.add(SC_CST.SECRETKEY, cipherKey);
+            gsocket.Send(r);*/
+            r=new NetworkPacket(SC_CST.YES);
+            r.add(SC_CST.SECRETKEY, (Object) cle);
             gsocket.Send(r);
             
             //pas d'erreur: mettre acutalState à l'état initial

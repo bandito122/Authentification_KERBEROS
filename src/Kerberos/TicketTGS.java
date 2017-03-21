@@ -2,7 +2,7 @@ package Kerberos;
 
 
 import JavaLibrary.Crypto.Cle;
-import Utils.ByteUtils;
+import JavaLibrary.Utils.ByteUtils;
 import java.io.IOException;
 import java.io.Serializable;
 import java.security.InvalidKeyException;

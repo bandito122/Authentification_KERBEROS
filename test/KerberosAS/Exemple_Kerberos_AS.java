@@ -1,13 +1,17 @@
 package KerberosAS;
 
+import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
+import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.HMAC.HMAC;
+import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
+import JavaLibrary.Network.CipherGestionSocket;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
 import Kerberos.AuthenticatorCS;
-import Utils.ByteUtils;
+import JavaLibrary.Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -29,6 +33,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import Kerberos.KAS_CST;
 import Kerberos.KTGS_CST;
+import java.util.Arrays;
 
 /*
  * @author Julien
@@ -40,38 +45,45 @@ public class Exemple_Kerberos_AS {
     public static String KEY_TYPE="DES";
     public static String USERNAME="julien";
     public static String PWD="test";    
-    //public static String PWD="";    
-    //public static String TGS_NAME="default";
-    public static String TGS_NAME="echec";
+    //public static String PWD=""; //debug
+    public static String TGS_NAME="default";
+    //public static String TGS_NAME="echec"; //debug
+    
+    //à mettre dans configuration     
     public static String ENCODING="UTF-8";
     public static String LDF_PATTERN="dd/MM/yyyy HH:00";
+    public static String ALGORITHM="DES";
     
     public static String KEY_DIR=System.getProperty("user.home")+System.getProperty("file.separator")+
             "client_cle"+System.getProperty("file.separator")+"exemple_cle.key";
     
+    static Chiffrement chKc, chKctgs;
     static Cle Kc, Kctgs;
     static GestionSocket gsocket_AS;
     static Socket s;
     static Cipher cipher;
-    static ArrayList<Object> paramAS;
+    static NetworkPacket paramAS;
     
     public static void main(String[] args) {
         try {
             //lire la clé utilisateur long terme, ici dans un fichier, en vrai reçue du serveur clé
             Kc=loadKey();
-            cipher=Cipher.getInstance("DES/ECB/PKCS5Padding");
+            chKctgs=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
+            chKc=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
+//            cipher=Cipher.getInstance("DES/ECB/PKCS5Padding");
             s=new Socket(HOST, PORT_AS);
             gsocket_AS=new GestionSocket(s);
             System.out.printf("[CLIENT]Connected to server %s:%d\n",HOST, PORT_AS);
             
+            //test KerberosAS
             SendFirstPacket();
+            //test KerberosTGS
             SendSecondPacket();
         } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | 
-                NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | 
-                BadPaddingException ex) {
+                InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
             System.exit(-1);
-        } catch (NoSuchProviderException ex) {
+        } catch (NoSuchProviderException | NoSuchChiffrementException ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -83,53 +95,64 @@ public class Exemple_Kerberos_AS {
         return c;
     }
 
-    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, BadPaddingException, NoSuchProviderException {
+    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, BadPaddingException, NoSuchProviderException, NoSuchChiffrementException {
         //pour ne pas que le PWD passe en clair!
         SecurePasswordSha256 sp=new SecurePasswordSha256(PWD);
         
-        //construit la liste des paramètres
-        ArrayList<Object> parameters=new ArrayList(6);
-        parameters.add(USERNAME);
-        parameters.add(sp.getSalt());
-        parameters.add(sp.getHashedPassword());
-        parameters.add(InetAddress.getLocalHost().getHostAddress());
-        parameters.add(TGS_NAME);
-        parameters.add(LocalDateTime.now().format(
+        //construit la liste des paramètres et envoyer
+        NetworkPacket np=new NetworkPacket(KAS_CST.INIT);
+        np.add(KAS_CST.USERNAME, USERNAME);
+        np.add(KAS_CST.SALT, sp.getSalt());
+        np.add(KAS_CST.PWD, sp.getHashedPassword());
+        np.add(KAS_CST.INTERFACE, InetAddress.getLocalHost().getHostAddress());
+        np.add(KAS_CST.TGSNAME, TGS_NAME);
+        np.add(KAS_CST.DATETIME, LocalDateTime.now().format(
                 DateTimeFormatter.ofPattern(LDF_PATTERN)));
         System.out.printf("[CLIENT]Local Host: %s\n",
                 InetAddress.getLocalHost().getHostAddress());
+        gsocket_AS.Send(np);
         
-        //pas de chiffrage au premier message, le serveur AS ne nous connaît pas encore
-        
-        //construire objet request
-        NetworkPacket r=new NetworkPacket(KAS_CST.INIT);
-        r.setChargeUtile(parameters);
-        //envoyer
-        gsocket_AS.Send(r);
-        
-        //lire la réponse
-        r=(NetworkPacket) gsocket_AS.Receive();
-        if(r.getType()==KAS_CST.YES) {
+        //lire la réponse. de +, on est en partiellement chiffré donc pas de CipherGestionSocket
+        paramAS=(NetworkPacket) gsocket_AS.Receive();
+        //permet également de déchiffrer
+        CipherGestionSocket cgs=new CipherGestionSocket(null, chKc);
+        if(paramAS.getType()==KAS_CST.YES) {
             //OK
             System.out.printf("[CLIENT]User %s connecté!\n",USERNAME);
-            cipher.init(Cipher.DECRYPT_MODE, ((CleDES)Kc).getCle( ));
-            paramAS=(ArrayList<Object>) r.getChargeUtile();
+            //cipher.init(Cipher.DECRYPT_MODE, ((CleDES)Kc).getCle( ));
+            chKc.init(Kc);
+            /*paramAS=(ArrayList<Object>) r.getChargeUtile();
             ArrayList<byte[]> firstPartAS=(ArrayList<byte[]>) paramAS.get(0);
-            ArrayList<byte[]> secondPartAS=(ArrayList<byte[]>) paramAS.get(1);
+            ArrayList<byte[]> secondPartAS=(ArrayList<byte[]>) paramAS.get(1);*/
             
             //première partie
-            Kctgs=(Cle) ByteUtils.toObject(cipher.doFinal(firstPartAS.get(0)));
-            ByteBuffer bb=ByteBuffer.allocate(4);
-            int version=ByteBuffer.wrap(cipher.doFinal(firstPartAS.get(1))).getInt();
-            String tgServerAddr=new String(cipher.doFinal(firstPartAS.get(2)), ENCODING);            
-            
+            //Kctgs=(Cle) ByteUtils.toObject(cipher.doFinal(firstPartAS.get(0)));
+        //Kctgs=(Cle) ByteUtils.toObject(chKc.decrypte((byte[])paramAS.get(KAS_CST.KCTGS)));
+            Kctgs=(Cle) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.KCTGS)));
+            /*ByteBuffer bb=ByteBuffer.allocate(4);
+            int version=ByteBuffer.wrap(cipher.doFinal(firstPartAS.get(1))).getInt();*/
+            int version=(Integer) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.VERSION)));
+            //String tgServerAddr=new String(cipher.doFinal(firstPartAS.get(2)), ENCODING);            
+            String tgServerAddr=(String) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.TGSNAME)));;
+             
+            //afficher
+            System.out.printf("[CLIENT]KerberosAS est de version %d, le nom du TGS est: %s\n", 
+                    version,tgServerAddr);
             //quitter la connexion au KerberosAS
-            r.setType(KAS_CST.QUIT);
-            r.setChargeUtile("");
-            gsocket_AS.Send(r);
-        } else {
+            NetworkPacket response=new NetworkPacket(KAS_CST.QUIT);
+            gsocket_AS.Send(response);
+            
+            //test
+            Chiffrement chKctgs=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
+            chKctgs.init(Kctgs);
+            String ciphertext=chKctgs.crypte("Charbon");
+            System.out.printf("texte chiffré: %s\n", Arrays.toString(ciphertext.getBytes()));
+            String plainText=chKctgs.decrypte(ciphertext);
+            System.out.printf("text déchiffré: %s\n", Arrays.toString(plainText.getBytes()));
+            System.out.printf("text déchiffré: %s\n", plainText);
+        } else { //pas ok
             System.out.printf("[CLIENT]Message received: %s\n",
-                    ((String)r.getChargeUtile()));
+                    ((String)paramAS.get(KAS_CST.MSG)));
             stop();
         }
         
@@ -139,7 +162,7 @@ public class Exemple_Kerberos_AS {
     private static void SendSecondPacket() throws NoSuchAlgorithmException, 
             NoSuchProviderException, InvalidKeyException, IOException, 
             IllegalBlockSizeException, BadPaddingException, UnknownHostException, ClassNotFoundException {
-        
+        /*
         ArrayList<byte[]> firstPartAS=(ArrayList<byte[]>) paramAS.get(0);
         ArrayList<byte[]> secondPartAS=(ArrayList<byte[]>) paramAS.get(1);
         
@@ -187,13 +210,13 @@ public class Exemple_Kerberos_AS {
 
         //seconde partie par ks... on ne sait pas la déchiffrer!
         byte[] ticketBis=secondPartAS.get(0);
-        System.out.println("OKOKOKKOKOK");   
+        System.out.println("OKOKOKKOKOK");   */
     }
 
     private static void stop() {
         try {
             NetworkPacket r=new NetworkPacket(KAS_CST.QUIT);
-            r.setChargeUtile("");
+            //r.setChargeUtile("");
             gsocket_AS.Send(r);
             s.close();
             System.exit(-1);

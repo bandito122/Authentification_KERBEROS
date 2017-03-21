@@ -59,6 +59,7 @@ public class Serveur_Cle {
     private DiffieHellman dh;
     private SC_State actualState;
     private Chiffrement ch;
+    public GestionSocket gs;
     
     public Serveur_Cle() {
         try {
@@ -102,7 +103,7 @@ public class Serveur_Cle {
         System.out.printf("[SERVER] client connected: %s:%d\n", 
                 clientSocket.getInetAddress().toString(), clientSocket.getPort());
         
-        GestionSocket gs=new GestionSocket(clientSocket);
+        gs=new GestionSocket(clientSocket);
         actualState=new SC_Init_State(gs, this);
         
         while(!quit) {
@@ -144,7 +145,8 @@ public class Serveur_Cle {
         provider=config.getProperty("provider");
         
         //si un de ces paramètres est nul: impossible de continuer l'exécution du serveur
-        if(algorithm==null || provider==null || cipher==null || padding==null ||s_port==null) {
+        if(algorithm==null || provider==null || cipher==null || padding==null 
+                || s_port==null) {
             throw new NoSuchFieldException();
         }
         
@@ -163,8 +165,7 @@ public class Serveur_Cle {
     private Cle createKey(String username) throws NoSuchChiffrementException, IOException, 
             NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
         Cle k = (Cle) CryptoManager.genereCle(algorithm);
-        ((CleDES)k).generateNew();
-        
+        ((CleDES)k).generateNew();        
         ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(DIRECTORY+username+EXT));
         oos.writeObject(k);
         oos.close();
@@ -209,13 +210,13 @@ public class Serveur_Cle {
         this.dh = dh;
     }
     
+    public DiffieHellman getDh() {
+        return dh;
+    }
+    
     public void setDHKey(byte[] key) throws NoSuchAlgorithmException, InvalidKeySpecException, 
             InvalidAlgorithmParameterException, InvalidKeyException {
         this.dh.setDHParam(key);
-    }
-    
-    public DiffieHellman getDh() {
-        return dh;
     }
     
     public void setActualState(SC_State actualState) {

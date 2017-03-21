@@ -1,15 +1,13 @@
 package ServeurCle;
 
 import JavaLibrary.Crypto.NoSuchChiffrementException;
+import JavaLibrary.Network.CipherGestionSocket;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
-import Utils.ByteUtils;
-import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import main.Serveur_Cle;
@@ -36,8 +34,12 @@ public class SC_DHPK_State extends SC_State {
             
             //initialiser la clé du serveur
             sc.createChiffrement(sc.getDh().getSecretKey());
+            
+            //changer le type de gestion socket du serveur clé
+            sc.gs=new CipherGestionSocket(sc.gs.getCSocket(), sc.getChiffrement());
+            
             //si ok, passer à l'état suivant
-            sc.setActualState(new SC_GetKey_State(gsocket, sc));
+            sc.setActualState(new SC_GetKey_State(sc.gs, sc));
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | 
                 InvalidAlgorithmParameterException | InvalidKeyException |
                 NoSuchChiffrementException ex) {

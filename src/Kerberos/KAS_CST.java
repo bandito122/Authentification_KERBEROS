@@ -18,5 +18,10 @@ public interface KAS_CST {
     public static final String USERNAME_NOT_FOUND="", TGS_NOT_FOUND="le TGS demandé est introuvable",
             UNKNOWN_OPERATION="opération inconnue",
             FAILURE="erreur interne au serveur";
+   
+    //nom des paramètres
+    public static final String MSG="message", USERNAME="username", PWD="pwd", SALT="salt",
+            INTERFACE="interface", TGSNAME="tgsname", DATETIME="datetime", KCTGS="kctgs",
+            VERSION="version", TICKETGS="ticketGS";
     
 }

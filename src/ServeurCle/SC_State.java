@@ -10,7 +10,7 @@ import main.Serveur_Cle;
  */
 public abstract class SC_State {
     
-    protected final GestionSocket gsocket;
+    protected GestionSocket gsocket;
     protected final Serveur_Cle sc;
 
     public SC_State(GestionSocket gsocket, Serveur_Cle sc) {
