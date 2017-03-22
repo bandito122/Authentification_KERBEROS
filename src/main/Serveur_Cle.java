@@ -1,12 +1,10 @@
 package main;
 import JavaLibrary.Crypto.ChiffreImpl.ChiffreDES;
 import JavaLibrary.Crypto.Chiffrement;
-import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import JavaLibrary.Crypto.NoSuchChiffrementException;
-import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
@@ -21,11 +19,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
 import ServeurCle.SC_Init_State;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.security.NoSuchProviderException;
 import ServeurCle.SC_CST;
 import javax.crypto.SecretKey;
 /*

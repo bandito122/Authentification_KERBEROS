@@ -15,26 +15,20 @@ import Kerberos.TicketTGS;
 import JavaLibrary.Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.ByteBuffer;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import Kerberos.KAS_CST;
 import Kerberos.KTGS_CST;
 import Serializator.KeySerializator;
+import java.time.LocalDate;
 
 /*
  * @author Julien
@@ -56,8 +50,7 @@ public class KerberosTGS {
     private Properties config, users;
     private boolean quit;
     private int port;
-    private String provider, algorithm, cipherMode, padding, 
-            transformation;
+    private String provider, algorithm, cipherMode, padding;
     
     private SecurePasswordSha256 sp;
     private GestionSocket gsocket;
@@ -102,7 +95,6 @@ public class KerberosTGS {
         }
         
         port=Integer.valueOf(s_port);
-        transformation=algorithm+'/'+cipherMode+'/'+padding;
     }
     
     public static void usage_file() {
@@ -116,7 +108,7 @@ public class KerberosTGS {
     }
     
     public static void main(String[] args) {
-        new KerberosTGS("default");
+        KerberosTGS kerberosTGS = new KerberosTGS("default");
     }
 
     private void startListening() throws IOException, NoSuchPaddingException {
@@ -142,7 +134,7 @@ public class KerberosTGS {
                     break;
                 default:
                     NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);
-                    //r.setChargeUtile(KTGS_CST.OPNOTPERMITTED);
+                    r.add(KTGS_CST.MSG, KTGS_CST.OPNOTPERMITTED);
                     gsocket.Send(r);
             }
         }
@@ -153,7 +145,6 @@ public class KerberosTGS {
         boolean error=false;
         try {
             //Déchiffrer le ticket chiffré avec KTGS pour extraire kctgs, la clé de session
-            //TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject(ch_ktgs.decrypte((byte[])r.get(KTGS_CST.TICKETGS)));
             CipherGestionSocket cgs=new CipherGestionSocket(null, ch_ktgs);
             TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject(cgs.decrypte(r.get(KTGS_CST.TGS)));
             kctgs=ticketTGS.cleSession;
@@ -181,16 +172,9 @@ public class KerberosTGS {
     private void loadKeys() throws IOException, ClassNotFoundException, 
             NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException, 
             NoSuchProviderException {
-        
-        /*ObjectInputStream ois=new ObjectInputStream(new FileInputStream(KEY_FILE));
-        ktgs=(Cle) ois.readObject();
-        ois.close();*/
         //récupère la clé du serveur TGS
         ktgs=KeySerializator.loadKey(KEY_FILE, algorithm);
         
-        /*ois=new ObjectInputStream(new FileInputStream(SERVERKEY_FILE));
-        ks=(Cle) ois.readObject();
-        ois.close();*/
         //récupère et crée si nécessaire la clé du serveur (pour la copier coller après :p)
         ks=KeySerializator.getKey(SERVERKEY_FILE, algorithm);
         
@@ -199,14 +183,6 @@ public class KerberosTGS {
         ch_ktgs.init(ktgs);
         ch_ks=(Chiffrement) CryptoManager.newInstance(algorithm);
         ch_ks.init(ks);
-    }
-    
-    /**
-     * A bouger dans la classe KTGS_CST
-     * @return 
-     */
-    protected static String getDateTimeNow() {
-        return LocalDateTime.now().format(DateTimeFormatter.ofPattern(LDF_PATTERN));
     }
 
     private void HandleSendACS(NetworkPacket req) {   
@@ -231,18 +207,15 @@ public class KerberosTGS {
             //le nom du serveur à atteindre
             reponse.add(KTGS_CST.SERVER_NAME, this.name);
             
-            reponse.add(KTGS_CST.DATETIME, getDateTimeNow());
+            reponse.add(KTGS_CST.DATETIME, LocalDate.now());
             
-            TicketTGS ticketTGS=new TicketTGS(
-                    acs.client, "localhost:6004", LocalDateTime.now(), kcs);
+            TicketTGS ticketTGS=new TicketTGS(acs.client, "localhost:6004", 
+                    LocalDate.now().plusDays(VALIDITY_DAY), kcs);
 
             reponse.add(KTGS_CST.TICKETGS, ticketTGS);
             gsocket.Send(reponse);
-        } catch (NoSuchCleException ex) {
-            Logger.getLogger(KerberosTGS.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(KerberosTGS.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchProviderException ex) {
+        } catch (NoSuchCleException | NoSuchAlgorithmException | 
+                NoSuchProviderException ex) {
             Logger.getLogger(KerberosTGS.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

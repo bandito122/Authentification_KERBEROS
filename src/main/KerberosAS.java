@@ -12,16 +12,12 @@ import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
 import Kerberos.TicketTGS;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,14 +38,13 @@ public class KerberosAS {
             SERVER_EXT=".serverkey";
     
     private static final int VERSION=1;
-    private static String ENCODING="UTF-8";
-    private static long VALIDITY_DAY=1;
+    private static final String ENCODING="UTF-8";
+    private static final long VALIDITY_DAY=1;
     
     private Properties config, users,tgServer;
     private boolean quit;
     private int port;
-    private String provider, algorithm, cipherMode, padding, 
-            transformation;
+    private String provider, algorithm, cipherMode, padding;
     private SecurePasswordSha256 sp;
     private GestionSocket gsocket;
     
@@ -86,7 +81,6 @@ public class KerberosAS {
         }
         
         port=Integer.valueOf(s_port);
-        transformation=algorithm+'/'+cipherMode+'/'+padding;
     }
     
     public static void usage_file() {
@@ -98,76 +92,6 @@ public class KerberosAS {
         System.out.printf("Le fichier %s doit comporter les Clés-Valeurs: port, "
                 + "algorithm, cipher, padding\n", CONFIG_FILE);
     }
-    /*
-    private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
-        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+EXT));
-        Cle c=(Cle) ois.readObject();
-        ois.close();
-        return c;
-    }
-    
-    private Cle createKey(String username) throws NoSuchChiffrementException, IOException, 
-            NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
-        Cle k = (Cle) CryptoManager.genereCle(algorithm);
-        
-        if(k instanceof CleDES)
-            ((CleDES)k).generateNew();
-        
-        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(DIRECTORY+username+EXT));
-        oos.writeObject(k);
-        oos.close();
-        return k;
-    }
-    
-    //récupère la clé Kc long terme du client avec ce serveur
-    public Cle getKey(String keyUser) throws IOException, ClassNotFoundException, NoSuchProviderException,
-            NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException {
-        Cle c;
-        try {
-            c=this.loadKey(keyUser);
-        } catch(FileNotFoundException e) {
-            //fichier non trouvé=il faut la créer puis la sauvegarder
-            //ca ne doit jamais arriver ?? 
-            c=this.createKey(keyUser);
-        } 
-        
-        return c;
-    }
-    */
-    /*
-    private Cle loadServerKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
-        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+SERVER_EXT));
-        Cle c=(Cle) ois.readObject();
-        ois.close();
-        return c;
-    }
-    
-    private Cle createServerKey(String username) throws NoSuchChiffrementException, IOException, 
-            NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
-        Cle c = (Cle) CryptoManager.genereCle(algorithm);
-        ((CleDES)c).generateNew();
-        
-        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(DIRECTORY+username+SERVER_EXT));
-        oos.writeObject(c);
-        oos.close();
-        return c;
-    }
-    
-    //récupère la server key pour le serveur TGS
-    private Cle getServerKey(String user) throws IOException, 
-            ClassNotFoundException, NoSuchChiffrementException, 
-            NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
-        Cle c;
-        try {
-            c=this.loadServerKey(user);
-        } catch(FileNotFoundException e) {
-            //fichier non trouvé=il faut la créer puis la sauvegarder
-            c=this.createServerKey(user);
-        } 
-        
-        return c;
-    }
-    */
     
     public boolean connectUser(String username, String salt, String receivedPassword) throws IOException {
         boolean passwordMatch=false;
@@ -192,14 +116,12 @@ public class KerberosAS {
     private void startListening() throws IOException, NoSuchPaddingException {
         ServerSocket ss=new ServerSocket(port);
         System.out.printf("[KERBEROS AS]Launched! waiting for client\n");
-
-        while(!quit) {
-            Socket clientSocket=ss.accept();
-            System.out.printf("[KERBEROS AS] client connected: %s:%d\n", 
+        Socket clientSocket=ss.accept();
+        System.out.printf("[KERBEROS AS] client connected: %s:%d\n", 
                     clientSocket.getInetAddress().toString(), clientSocket.getPort());
 
             gsocket=new GestionSocket(clientSocket);
-        
+        while(!quit) {
             NetworkPacket req=(NetworkPacket) gsocket.Receive();
             if(req==null) {
                 break;
@@ -211,7 +133,7 @@ public class KerberosAS {
                     break;
                 case KAS_CST.QUIT:
                     System.out.println("[KERBEROS AS] QUIT request received");
-                    //gsocket.Close();
+                    gsocket.Close();
                     quit=true;
                     break;
                 default:
@@ -245,7 +167,6 @@ public class KerberosAS {
                 reponse.setType(KAS_CST.YES);
                 
                 //récupère la clé long terme du client correspondant
-                //Kc=(CleDES) getKey((String) r.get(KAS_CST.USERNAME));
                 Kc=KeySerializator.getKey(
                         DIRECTORY+(String) r.get(KAS_CST.USERNAME)+EXT, algorithm);
                 
@@ -255,8 +176,6 @@ public class KerberosAS {
                 if(Kctgs instanceof CleDES) //obliger ici
                     ((CleDES)Kctgs).generateNew();
                 
-                /* Cipher cipher=Cipher.getInstance(transformation);
-                cipher.init(Cipher.ENCRYPT_MODE, ((CleDES)Kc).getCle()); */
                 Chiffrement chKc=(Chiffrement) CryptoManager.newInstance(algorithm);
                 chKc.init(Kc);
                 CipherGestionSocket cgs=new CipherGestionSocket(null, chKc);
@@ -266,9 +185,9 @@ public class KerberosAS {
                 reponse.add(KAS_CST.KCTGS, cgs.crypte(Kctgs));
                 reponse.add(KAS_CST.VERSION, cgs.crypte((Integer)VERSION));
                 reponse.add(KAS_CST.TGSNAME, cgs.crypte(tgServerAddr));
+                reponse.add(KAS_CST.DATETIME, LocalDate.now());
                 
                 //récupère la clé du serveur avec ce client et crypte le ticket avec
-                //Ktgs=(CleDES) getServerKey((String) r.get(KAS_CST.USERNAME));
                 Ktgs=KeySerializator.getKey(
                         DIRECTORY+(String) r.get(KAS_CST.USERNAME)+SERVER_EXT, algorithm);
                 
@@ -277,8 +196,9 @@ public class KerberosAS {
                 // chiffré avec la clé du serveur
                 TicketTGS ticketTGS=new TicketTGS((String)r.get(KAS_CST.USERNAME), 
                         (String) r.get(KAS_CST.INTERFACE),
-                        LocalDateTime.now().plusDays(VALIDITY_DAY), Kctgs); //définir la validité... 24h?
-                //utile?
+                        LocalDate.now().plusDays(VALIDITY_DAY), Kctgs); //définir la validité... 24h?
+                
+                //pour chiffrer le tciket TGS avec la clé du serveur TGS
                 Chiffrement chKtgs=(Chiffrement) CryptoManager.newInstance(algorithm);
                 chKtgs.init(Ktgs);
                 cgs=new CipherGestionSocket(null, chKtgs);

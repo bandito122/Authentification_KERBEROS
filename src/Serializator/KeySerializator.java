@@ -19,6 +19,12 @@ import java.security.NoSuchProviderException;
  */
 public class KeySerializator {
     
+    public static void saveKey(String path, Cle cle) throws IOException {
+        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(path));
+        oos.writeObject(cle);
+        oos.close();
+    }
+    
     public static Cle loadKey(String path, String algorithm) throws FileNotFoundException, IOException, ClassNotFoundException {
         ObjectInputStream ois=new ObjectInputStream(new FileInputStream(path));
         Cle c=(Cle) ois.readObject();
@@ -31,9 +37,8 @@ public class KeySerializator {
         Cle c = (Cle) CryptoManager.genereCle(algorithm);
         ((CleDES)c).generateNew();
         
-        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(path));
-        oos.writeObject(c);
-        oos.close();
+        saveKey(path, c);
+        
         return c;
     }
     

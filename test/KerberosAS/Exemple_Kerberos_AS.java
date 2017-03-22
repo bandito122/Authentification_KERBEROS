@@ -12,29 +12,25 @@ import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
 import Kerberos.AuthenticatorCS;
 import JavaLibrary.Utils.ByteUtils;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import Kerberos.KAS_CST;
 import Kerberos.KTGS_CST;
 import Kerberos.TicketTGS;
 import Serializator.KeySerializator;
+import java.time.LocalDate;
 import java.util.Arrays;
 
 /*
@@ -46,10 +42,10 @@ public class Exemple_Kerberos_AS {
         HOST="localhost",
         USERNAME="julien", 
         PWD="test",
-        //PWD="", //debug
+        //PWD="", //debug pour créer une erreur
         TGS_NAME="default",
         SERVER="default";
-        //TGS_NAME="echec"; //debug
+        //TGS_NAME="echec"; //debug pour créer une erreur
     
     //à mettre dans configuration     
     public static String ENCODING="UTF-8",
@@ -73,7 +69,6 @@ public class Exemple_Kerberos_AS {
             chKctgs=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
             chKc=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
             chKc.init(Kc);
-//            cipher=Cipher.getInstance("DES/ECB/PKCS5Padding");
             s=new Socket(HOST, PORT_AS);
             gsocket_AS=new GestionSocket(s);
             System.out.printf("[CLIENT]Connected to server %s:%d\n",HOST, PORT_AS);
@@ -95,14 +90,6 @@ public class Exemple_Kerberos_AS {
         }
     }
 
-    /*
-    private static Cle loadKey() throws IOException, ClassNotFoundException {
-        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(KEY_DIR));
-        Cle c=(Cle) ois.readObject();
-        ois.close();
-        return c;
-    }*/
-
     private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException,
             InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, 
             BadPaddingException, NoSuchProviderException, NoSuchChiffrementException {
@@ -116,8 +103,7 @@ public class Exemple_Kerberos_AS {
         np.add(KAS_CST.PWD, sp.getHashedPassword());
         np.add(KAS_CST.INTERFACE, InetAddress.getLocalHost().getHostAddress());
         np.add(KAS_CST.TGSNAME, TGS_NAME);
-        np.add(KAS_CST.DATETIME, LocalDateTime.now().format(
-                DateTimeFormatter.ofPattern(LDF_PATTERN)));
+        np.add(KAS_CST.DATETIME, LocalDate.now());
         System.out.printf("[CLIENT]Local Host: %s\n",
                 InetAddress.getLocalHost().getHostAddress());
         gsocket_AS.Send(np);
@@ -166,7 +152,8 @@ public class Exemple_Kerberos_AS {
     //Communication avec le TGS
     private static void SendSecondPacket() throws NoSuchAlgorithmException, 
             NoSuchProviderException, InvalidKeyException, IOException, 
-            IllegalBlockSizeException, BadPaddingException, UnknownHostException, ClassNotFoundException {        
+            IllegalBlockSizeException, BadPaddingException, UnknownHostException, 
+            ClassNotFoundException {        
         //Connexion au serveur TGS
         Socket s=new Socket(HOST, PORT_TGS);
 
@@ -199,9 +186,9 @@ public class Exemple_Kerberos_AS {
         
         //on doit ensuite envoyer l'ACS: on le prépare donc
         HMAC hmac=new HMAC();
-        hmac.generate(((CleDES)Kctgs).getCle(), USERNAME+getDateTimeNow());
+        hmac.generate(((CleDES)Kctgs).getCle(), USERNAME+LocalDate.now().toString());
         AuthenticatorCS acs=new AuthenticatorCS(USERNAME,
-                LocalDateTime.now(), hmac.ToString());
+                LocalDate.now(), hmac);
         
         //préparer le paquet avec l'ACS à envoyer
         NetworkPacket tgsParam=new NetworkPacket(KTGS_CST.SENDACS);
@@ -212,19 +199,11 @@ public class Exemple_Kerberos_AS {
         //lit la réponse    
         NetworkPacket paramTGS=(NetworkPacket) gsocket_TGS.Receive();
         Cle kcs=(Cle) paramTGS.get(KTGS_CST.KCS);
-        /*int version=ByteBuffer.wrap(
-                cipher.doFinal(firstPartAS.get(1))).getInt();*/
         int version=(Integer) paramTGS.get(KTGS_CST.VERSION);
-        /*String nomServeur=new String(cipher.doFinal(firstPartAS.get(2)),
-                ENCODING);*/
         String nomServeur=(String) paramTGS.get(KTGS_CST.SERVER_NAME);
-        /*LocalDateTime ldt=LocalDateTime.parse(
-                new String(cipher.doFinal(firstPartAS.get(3)), ENCODING),
-                DateTimeFormatter.ofPattern(LDF_PATTERN));*/
         String ldt=(String) paramTGS.get(KTGS_CST.DATETIME);
 
         //seconde partie par ks... on ne sait pas la déchiffrer!
-        //byte[] ticketBis=secondPartAS.get(0);
         TicketTGS ticketTgs=(TicketTGS) paramTGS.get(KTGS_CST.TICKETGS);
         System.out.println("OKOKOKKOKOK");
     }
@@ -239,14 +218,5 @@ public class Exemple_Kerberos_AS {
         } catch (IOException ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }
-    
-    /**
-     * A bouger dans la classe KTGS_CST
-     * @return 
-     */
-    protected static String getDateTimeNow() {
-        return LocalDateTime.now().format(
-                DateTimeFormatter.ofPattern(LDF_PATTERN));
-    }
+    }    
 }

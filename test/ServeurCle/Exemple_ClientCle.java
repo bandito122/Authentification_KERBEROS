@@ -9,7 +9,7 @@ import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import JavaLibrary.Network.CipherGestionSocket;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
-import JavaLibrary.Utils.ByteUtils;
+import Serializator.KeySerializator;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -33,7 +33,7 @@ public class Exemple_ClientCle {
     public static String KEY_TYPE="DES";
     public static String USERNAME="julien";
     public static String PWD="test";
-    public static String SAVING__DIR=System.getProperty("user.home")+
+    public static String SAVING_DIR=System.getProperty("user.home")+
             System.getProperty("file.separator")+"client_cle"+
             System.getProperty("file.separator")+"exemple_cle.key";
     
@@ -95,12 +95,9 @@ public class Exemple_ClientCle {
             System.out.println("[CLIENT]Answer received");
             if(r.getType()==SC_CST.YES) {
                 System.out.println("[CLIENT]Answer is yes");
-                //récupère la clé
+                //récupère la clé & la sauvegarde dans SAVING_DIR
                 Cle cle=(Cle) r.get(SC_CST.SECRETKEY);
-                //sauvegarder la clé 
-                ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(SAVING__DIR));
-                oos.writeObject(cle);
-                oos.close();
+                KeySerializator.saveKey(SAVING_DIR, cle);
                 
                 //test à comparer avec le serveur_clé
                 Chiffrement chLongTermKey=(Chiffrement) CryptoManager.newInstance("DES");
