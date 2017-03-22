@@ -1,4 +1,4 @@
-package ServeurCle;
+package ServeurCle.State;
 
 import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
@@ -7,6 +7,7 @@ import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
 import Serializator.KeySerializator;
+import ServeurCle.SC_CST;
 import main.Serveur_Cle;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -25,34 +26,26 @@ public class SC_GetKey_State extends SC_State {
  
     @Override
     public void get_key(NetworkPacket r) {
-        Chiffrement ch=sc.getChiffrement();
+        Chiffrement ch=context.getChiffrement();
         try {
-            //récupérer la clé dans un fichier .key
+            //récupérer la clé dans un fichier username.key, si elle n'existe pas, elle est crée
             Cle cle=KeySerializator.getKey(Serveur_Cle.DIRECTORY+
-                    (String)r.get(SC_CST.USERNAME)+Serveur_Cle.EXT, sc.getAlgorithm());
+                    (String)r.get(SC_CST.USERNAME)+Serveur_Cle.EXT, context.getAlgorithm());
             
-            //Chiffrer l'objet Clé
-            //byte[] cipherKey=ch.crypte(ByteUtils.toByteArray((Object) cle));
-            //System.out.printf("[SERVER]Clé chiffrée: longueur %d bytes\n",cipherKey.length);
-            //envoyer la clé chiffrée
-            /*r=new NetworkPacket(SC_CST.YES);
-            r.add(SC_CST.SECRETKEY, cipherKey);
-            gsocket.Send(r);*/
+            //Chiffrer l'objet Clé et l'envoyer            
             r=new NetworkPacket(SC_CST.YES);
-            r.add(SC_CST.SECRETKEY, (Object) cle);
-            gsocket.Send(r);
+            r.add(SC_CST.SECRETKEY, cle);
             
-            //pas d'erreur: mettre acutalState à l'état initial
-            sc.setActualState(new SC_Init_State(gsocket, sc));
+            //si pas d'erreur: mettre acutalState à l'état initial
+            context.setActualState(new SC_Init_State(gsocket, context));
             
-        } catch (NoSuchAlgorithmException | IOException | 
-                NoSuchProviderException | NoSuchCleException | 
-                ClassNotFoundException | NoSuchChiffrementException ex) {
+        } catch (NoSuchAlgorithmException | IOException | NoSuchProviderException | 
+                NoSuchCleException | ClassNotFoundException | NoSuchChiffrementException ex) {
             Logger.getLogger(SC_GetKey_State.class.getName()).log(Level.SEVERE, null, ex);
-            
             //Envoyer erreur au client
             r=new NetworkPacket(SC_CST.FAIL);
-            r.add(SC_CST.MSG,SC_CST.KEYFAILED);   
+            r.add(SC_CST.MSG,SC_CST.KEY_FAILED);   
+        } finally {
             gsocket.Send(r);
         }
     }

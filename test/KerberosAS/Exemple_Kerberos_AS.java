@@ -104,41 +104,39 @@ public class Exemple_Kerberos_AS {
         np.add(KAS_CST.INTERFACE, InetAddress.getLocalHost().getHostAddress());
         np.add(KAS_CST.TGSNAME, TGS_NAME);
         np.add(KAS_CST.DATETIME, LocalDate.now());
+        //np.add(KAS_CST.DATETIME, LocalDate.now().minusDays(2));//debug: non valide depuis un jour
         System.out.printf("[CLIENT]Local Host: %s\n",
                 InetAddress.getLocalHost().getHostAddress());
         gsocket_AS.Send(np);
         
-        //lire la réponse. de +, on est en partiellement chiffré donc pas de CipherGestionSocket
+        //Lire la réponse. De +, on est en partiellement chiffré donc pas de CipherGestionSocket
         paramAS=(NetworkPacket) gsocket_AS.Receive();
-        //permet également de déchiffrer
+        //Avec une socket null CGS permet de (dé)chiffrer simplement
         CipherGestionSocket cgs=new CipherGestionSocket(null, chKc);
         if(paramAS.getType()==KAS_CST.YES) {
             //OK
             System.out.printf("[CLIENT]User %s connecté!\n",USERNAME);
             chKc.init(Kc);
             
-            //première partie
+            //Envoie le paquet chiffré avec Kctgs
             Kctgs=(Cle) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.KCTGS)));
-            
-            /*ByteBuffer bb=ByteBuffer.allocate(4);
-            int version=ByteBuffer.wrap(cipher.doFinal(firstPartAS.get(1))).getInt();*/
             int version=(Integer) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.VERSION)));
-            //String tgServerAddr=new String(cipher.doFinal(firstPartAS.get(2)), ENCODING);            
             String tgServerAddr=(String) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.TGSNAME)));;
              
-            //afficher
             System.out.printf("[CLIENT]KerberosAS est de version %d, le nom du TGS est: %s\n", 
                     version,tgServerAddr);
+            
             //quitter la connexion au KerberosAS
             NetworkPacket response=new NetworkPacket(KAS_CST.QUIT);
             gsocket_AS.Send(response);
+            gsocket_AS.Close();
             
             //test
-            Chiffrement chKctgs=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
-            chKctgs.init(Kctgs);
-            String ciphertext=chKctgs.crypte("Charbon");
+            Chiffrement chKctgs_test=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
+            chKctgs_test.init(Kctgs);
+            String ciphertext=chKctgs_test.crypte("Charbon");
             System.out.printf("texte chiffré: %s\n", Arrays.toString(ciphertext.getBytes()));
-            String plainText=chKctgs.decrypte(ciphertext);
+            String plainText=chKctgs_test.decrypte(ciphertext);
             System.out.printf("text déchiffré: %s\n", Arrays.toString(plainText.getBytes()));
             System.out.printf("text déchiffré: %s\n", plainText);
         } else { //pas ok
@@ -159,7 +157,7 @@ public class Exemple_Kerberos_AS {
 
         //Le paquet en entier n'est pas chiffré, juste le ticket!
         //TGS à besoin du ticket pour récupérer la clé de session
-        //le ticket est chiffrer avec la clé long terme de TGS
+        //le ticket est chiffré avec la clé long terme de TGS
         gsocket_TGS=new GestionSocket(s);
         
         //crée le paquet et l'envoit!
@@ -170,16 +168,16 @@ public class Exemple_Kerberos_AS {
         //lire réponse
         NetworkPacket ticketReponse=(NetworkPacket) gsocket_TGS.Receive();
         
-        if(ticketReponse.getType()!=KTGS_CST.YES) {
+        if(ticketReponse.getType()!=KTGS_CST.YES) { //erreur
             System.out.printf("[CLIENT] Erreur lors du SEND TICKET: %s\n",
                     ticketReponse.get(KTGS_CST.MSG));
             gsocket_TGS.Close();
             System.exit(-1);
-        } else {
+        } else { //ok
             System.out.printf("[CLIENT]Serveur TGS ok\n");
         }
         
-        //la communication est maintenant chiffrée par kc,tgs: clé temporaire
+        //la communication est maintenant chiffrée par kc,tgs: une clé temporaire
         //entre le client et le serveur TGS
         chKctgs.init(Kctgs);
         gsocket_TGS=(GestionSocket) new CipherGestionSocket(s, chKctgs);
@@ -198,20 +196,24 @@ public class Exemple_Kerberos_AS {
         
         //lit la réponse    
         NetworkPacket paramTGS=(NetworkPacket) gsocket_TGS.Receive();
-        Cle kcs=(Cle) paramTGS.get(KTGS_CST.KCS);
-        int version=(Integer) paramTGS.get(KTGS_CST.VERSION);
-        String nomServeur=(String) paramTGS.get(KTGS_CST.SERVER_NAME);
-        String ldt=(String) paramTGS.get(KTGS_CST.DATETIME);
+        if(paramTGS.getType()==KTGS_CST.YES) {
+            Cle kcs=(Cle) paramTGS.get(KTGS_CST.KCS);
+            int version=(Integer) paramTGS.get(KTGS_CST.VERSION);
+            String nomServeur=(String) paramTGS.get(KTGS_CST.SERVER_NAME);
+            String ldt=(String) paramTGS.get(KTGS_CST.DATETIME);
 
-        //seconde partie par ks... on ne sait pas la déchiffrer!
-        TicketTGS ticketTgs=(TicketTGS) paramTGS.get(KTGS_CST.TICKETGS);
-        System.out.println("OKOKOKKOKOK");
+            //seconde partie par ks... on ne sait pas la déchiffrer!
+            TicketTGS ticketTgs=(TicketTGS) paramTGS.get(KTGS_CST.TICKET_SERVER);
+            System.out.println("OKOKOKKOKOK");
+        } else {
+            System.out.printf("[CLIENT]Something went wrong: %s\n",
+                    (String)paramTGS.get(KTGS_CST.MSG));
+        }
     }
 
     private static void stop() {
         try {
             NetworkPacket r=new NetworkPacket(KAS_CST.QUIT);
-            //r.setChargeUtile("");
             gsocket_AS.Send(r);
             s.close();
             System.exit(-1);

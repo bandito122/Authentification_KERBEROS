@@ -1,7 +1,8 @@
-package ServeurCle;
+package ServeurCle.State;
 
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
+import ServeurCle.SC_CST;
 import main.Serveur_Cle;
 
 /*
@@ -11,11 +12,11 @@ import main.Serveur_Cle;
 public abstract class SC_State {
     
     protected GestionSocket gsocket;
-    protected final Serveur_Cle sc;
+    protected final Serveur_Cle context;
 
     public SC_State(GestionSocket gsocket, Serveur_Cle sc) {
         this.gsocket = gsocket;
-        this.sc=sc;
+        this.context=sc;
     }
     
     public void init_step(NetworkPacket r) {
@@ -32,7 +33,7 @@ public abstract class SC_State {
     
     public void OperationNotPermitted(String operation) {
         NetworkPacket r=new NetworkPacket(SC_CST.FAIL);
-        r.add(SC_CST.MSG, String.format(SC_CST.OPNOTPERMITTED, operation));
+        r.add(SC_CST.MSG, String.format(SC_CST.UNKOWN_OPERATION, operation));
         gsocket.Send(r);
     }
 }

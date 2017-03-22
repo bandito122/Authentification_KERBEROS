@@ -27,7 +27,10 @@ import java.util.logging.Logger;
 import javax.crypto.NoSuchPaddingException;
 import Kerberos.KAS_CST;
 import Kerberos.KTGS_CST;
+import Kerberos.TGSState.TGS_State;
+import Kerberos.TGSState.TGS_Ticket_State;
 import Serializator.KeySerializator;
+import java.security.InvalidParameterException;
 import java.time.LocalDate;
 
 /*
@@ -43,21 +46,17 @@ public class KerberosTGS {
             KEY_FILE=DIRECTORY+"ktgs"+EXT,
             SERVERKEY_FILE=DIRECTORY+"default_serverkey"+SERVER_EXT;
     
-    private static final int VERSION=2;
-    private static final String LDF_PATTERN="dd/MM/yyyy HH:00", ENCODING="UTF-8";
-    private static final long VALIDITY_DAY=1;
-    
     private Properties config, users;
     private boolean quit;
-    private int port;
-    private String provider, algorithm, cipherMode, padding;
+    public int port, version;
+    public long validite;
+    public String algorithm, name;
     
     private SecurePasswordSha256 sp;
     private GestionSocket gsocket;
-    private String name;
-    private Cle ktgs,kctgs, kcs, ks;
-    private Chiffrement ch_ktgs, ch_ks, ch_kctgs;
-    
+    public Cle ktgs,kctgs, kcs, ks;
+    public Chiffrement ch_ktgs, ch_ks, ch_kctgs;
+    public TGS_State actualState;
     public KerberosTGS(String name) {
         try {
             this.name=name;
@@ -86,15 +85,16 @@ public class KerberosTGS {
         users.load(new FileInputStream(USERS_FILE));
         
         String s_port=config.getProperty("port");
+        String s_version=config.getProperty("version");
+        String s_validite=config.getProperty("validite");
         algorithm=config.getProperty("algorithm");
-        cipherMode=config.getProperty("cipher");
-        padding=config.getProperty("padding");
-        provider=config.getProperty("provider");
-        if(algorithm==null || cipherMode==null || provider==null || padding==null || s_port==null) {
+        if(algorithm==null || s_port==null || s_validite==null || s_version==null) {
             throw new NoSuchFieldException();
         }
         
         port=Integer.valueOf(s_port);
+        version=Integer.valueOf(s_version);
+        validite=Long.valueOf(s_validite);
     }
     
     public static void usage_file() {
@@ -119,6 +119,7 @@ public class KerberosTGS {
             clientSocket.getInetAddress().toString(), clientSocket.getPort());
             
         gsocket=new GestionSocket(clientSocket);
+        this.actualState=new TGS_Ticket_State(gsocket, this);
         
         while(!quit) {
             NetworkPacket req=(NetworkPacket) gsocket.Receive();
@@ -127,44 +128,15 @@ public class KerberosTGS {
             }
             switch(req.getType()) {
                 case KTGS_CST.SENDTICKET: System.out.println("[KERBEROS TGS] SENDTICKETS request received");
-                    HandleSendTicket(req);
+                    this.actualState.HandleSendTicket(req);
                     break;
                 case KTGS_CST.SENDACS: System.out.println("[KERBEROS TGS] SENDACS request received");
-                    HandleSendACS(req);
+                    this.actualState.HandleSendACS(req);
                     break;
                 default:
                     NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);
                     r.add(KTGS_CST.MSG, KTGS_CST.OPNOTPERMITTED);
                     gsocket.Send(r);
-            }
-        }
-    }
-
-    private void HandleSendTicket(NetworkPacket r) throws IOException {
-        NetworkPacket reponse=new NetworkPacket(0);
-        boolean error=false;
-        try {
-            //Déchiffrer le ticket chiffré avec KTGS pour extraire kctgs, la clé de session
-            CipherGestionSocket cgs=new CipherGestionSocket(null, ch_ktgs);
-            TicketTGS ticketTGS=(TicketTGS) ByteUtils.toObject(cgs.decrypte(r.get(KTGS_CST.TGS)));
-            kctgs=ticketTGS.cleSession;
-            ch_kctgs=(Chiffrement) CryptoManager.newInstance(algorithm);
-            ch_kctgs.init(kctgs);
-            
-            //envoyer un YES
-            reponse.setType(KTGS_CST.YES);
-            reponse.add(KTGS_CST.MSG, KTGS_CST.SUCCESS);
-        }catch(Exception ex) { // catch (IOException | ClassNotFoundException ex) {
-            Logger.getLogger(KerberosTGS.class.getName()).log(Level.SEVERE, null, ex);
-            reponse.setType(KTGS_CST.FAIL);
-            reponse.add(KTGS_CST.MSG, KTGS_CST.CMDFAILED);
-            error=true;
-        } finally {
-            gsocket.Send(reponse);
-            if(!error) {
-                //la clé de session sert à déchiffer l'authentificateur, on doit donc 
-                //générer un nouveau CipherGestionSocket sur le chiffrement kctgs
-                gsocket=new CipherGestionSocket(gsocket.getCSocket(), ch_kctgs);
             }
         }
     }
@@ -185,38 +157,7 @@ public class KerberosTGS {
         ch_ks.init(ks);
     }
 
-    private void HandleSendACS(NetworkPacket req) {   
-        try {
-            //récupérer l'authenticatorCS pour l'analyser
-            AuthenticatorCS acs=(AuthenticatorCS) req.get(KTGS_CST.ACS);
-            
-            //!!!il faudrait vérifier les informations reçues!!!!
-            
-            //Envoyer au client la réponse
-            NetworkPacket reponse=new NetworkPacket(KTGS_CST.YES);
-            
-            //Chiffrer avec la clé de session Kc,tgs
-            //générer une clé de session client-serveur
-            kcs=CryptoManager.genereCle(algorithm);
-            ((CleDES)kcs).generateNew();
-            
-            reponse.add(KTGS_CST.KCS, kcs);
-            //envoyer la version
-            reponse.add(KTGS_CST.VERSION, VERSION);
-            
-            //le nom du serveur à atteindre
-            reponse.add(KTGS_CST.SERVER_NAME, this.name);
-            
-            reponse.add(KTGS_CST.DATETIME, LocalDate.now());
-            
-            TicketTGS ticketTGS=new TicketTGS(acs.client, "localhost:6004", 
-                    LocalDate.now().plusDays(VALIDITY_DAY), kcs);
-
-            reponse.add(KTGS_CST.TICKETGS, ticketTGS);
-            gsocket.Send(reponse);
-        } catch (NoSuchCleException | NoSuchAlgorithmException | 
-                NoSuchProviderException ex) {
-            Logger.getLogger(KerberosTGS.class.getName()).log(Level.SEVERE, null, ex);
-        }
+    public void stop() {
+        this.quit=true;
     }
 }

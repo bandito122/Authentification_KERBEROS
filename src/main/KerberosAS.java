@@ -34,17 +34,14 @@ public class KerberosAS {
     private static final String DIRECTORY=System.getProperty("user.home")+ System.getProperty("file.separator")+
         "kerberos_as"+ System.getProperty("file.separator"),  
         CONFIG_FILE=DIRECTORY+"config.properties", USERS_FILE=DIRECTORY+"users.properties",
-            TGSERVERS_FILE=DIRECTORY+"tgservers.properties", EXT=".key",
-            SERVER_EXT=".serverkey";
+        TGSERVERS_FILE=DIRECTORY+"tgservers.properties", EXT=".key",
+        SERVER_EXT=".serverkey";
     
-    private static final int VERSION=1;
-    private static final String ENCODING="UTF-8";
-    private static final long VALIDITY_DAY=1;
-    
-    private Properties config, users,tgServer;
+    private Properties config, users, tgServer;
     private boolean quit;
-    private int port;
-    private String provider, algorithm, cipherMode, padding;
+    private int port, version;
+    private long validite;
+    private String algorithm;
     private SecurePasswordSha256 sp;
     private GestionSocket gsocket;
     
@@ -72,15 +69,17 @@ public class KerberosAS {
         tgServer.load(new FileInputStream(TGSERVERS_FILE));
         
         String s_port=config.getProperty("port");
+        String s_validite=config.getProperty("validite");
+        String s_version=config.getProperty("version");
         algorithm=config.getProperty("algorithm");
-        cipherMode=config.getProperty("cipher");
-        padding=config.getProperty("padding");
-        provider=config.getProperty("provider");
-        if(algorithm==null || cipherMode==null || provider==null || padding==null || s_port==null) {
+        
+        if(algorithm==null || s_port==null || s_validite==null || s_version==null) {
             throw new NoSuchFieldException();
         }
         
         port=Integer.valueOf(s_port);
+        version=Integer.valueOf(s_version);
+        validite=Long.valueOf(s_validite);
     }
     
     public static void usage_file() {
@@ -109,10 +108,6 @@ public class KerberosAS {
         return passwordMatch;
     }
     
-    public String getTGServer(String commonName) {         
-        return tgServer.getProperty(commonName);
-    }
-    
     private void startListening() throws IOException, NoSuchPaddingException {
         ServerSocket ss=new ServerSocket(port);
         System.out.printf("[KERBEROS AS]Launched! waiting for client\n");
@@ -139,7 +134,7 @@ public class KerberosAS {
                 default:
                     NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);
                     r.add(KAS_CST.MSG, KAS_CST.UNKNOWN_OPERATION);
-                    //gsocket.Send(r);
+                    gsocket.Send(r);
             }
         }
         System.out.println("[KERBEROS AS]Bye bye!");
@@ -151,16 +146,16 @@ public class KerberosAS {
         NetworkPacket reponse=new NetworkPacket(0);
         try {            
             //authentifier le client + regarder si le serveur demandé existe
-            String tgServerAddr=getTGServer((String) r.get(KAS_CST.TGSNAME));
+            String tgServerAddr=tgServer.getProperty((String) r.get(KAS_CST.TGSNAME));
             boolean isConnected=connectUser((String) r.get(KAS_CST.USERNAME), 
                     (String) r.get(KAS_CST.SALT), (String) r.get(KAS_CST.PWD));
             boolean tgsFound=tgServerAddr!=null;
             
             System.out.printf("[KerberosAS]Tentative de connexion:\n\t Username: %s, Hash PWD %s\n"
                     + "\t IP: %s Serveur à atteindre: %s Valeur temporelle: %s\n", 
-                    (String) r.get(KAS_CST.USERNAME), (String) r.get(KAS_CST.PWD), 
-                    r.get(KAS_CST.INTERFACE), r.get(KAS_CST.TGSNAME), 
-                    (String) r.get(KAS_CST.DATETIME));
+                    r.get(KAS_CST.USERNAME).toString(), (String) r.get(KAS_CST.PWD).toString(), 
+                    r.get(KAS_CST.INTERFACE).toString(), r.get(KAS_CST.TGSNAME).toString(), 
+                    r.get(KAS_CST.DATETIME).toString());
             
             if(isConnected && tgsFound) {
                 //les hashed parameters sont identiques
@@ -183,7 +178,7 @@ public class KerberosAS {
                 //{La clé de session,version,nom du serveur TGS} 
                 //chiffré avec la clé long terme du client Kc
                 reponse.add(KAS_CST.KCTGS, cgs.crypte(Kctgs));
-                reponse.add(KAS_CST.VERSION, cgs.crypte((Integer)VERSION));
+                reponse.add(KAS_CST.VERSION, cgs.crypte((Integer)version));
                 reponse.add(KAS_CST.TGSNAME, cgs.crypte(tgServerAddr));
                 reponse.add(KAS_CST.DATETIME, LocalDate.now());
                 
@@ -196,7 +191,7 @@ public class KerberosAS {
                 // chiffré avec la clé du serveur
                 TicketTGS ticketTGS=new TicketTGS((String)r.get(KAS_CST.USERNAME), 
                         (String) r.get(KAS_CST.INTERFACE),
-                        LocalDate.now().plusDays(VALIDITY_DAY), Kctgs); //définir la validité... 24h?
+                        LocalDate.now().plusDays(validite), Kctgs); //définir la validité... 24h?
                 
                 //pour chiffrer le tciket TGS avec la clé du serveur TGS
                 Chiffrement chKtgs=(Chiffrement) CryptoManager.newInstance(algorithm);
@@ -206,14 +201,14 @@ public class KerberosAS {
                 System.out.println("[KERBEROS AS]successful!");
             } else { // si user pas connected où si serveur tgs demandé pas trouvé: accès refusé
                 reponse.setType(KAS_CST.NO);
-                if(!isConnected) {//clé d'utilisateur pas trouvé
-                    reponse.add(KAS_CST.MSG, KAS_CST.USERNAME_NOT_FOUND);
-                    System.err.printf("[KERBEROS AS]Username: %s : %s\n", 
+                if(!isConnected) { //clé d'utilisateur pas trouvé
+                    reponse.add(KAS_CST.MSG, KAS_CST.USER_NOT_FOUND);
+                    System.err.printf("[KERBEROS AS]Username pas trouvé: %s : %s\n", 
                             (String)r.get(KAS_CST.USERNAME), 
-                            KAS_CST.USERNAME_NOT_FOUND);
-                } else if(!tgsFound) { //serveur tgs pas trouvé
+                            KAS_CST.USER_NOT_FOUND);
+                } else if(!tgsFound) { //serveur tgs demandé pas trouvé
                     reponse.add(KAS_CST.MSG, KAS_CST.TGS_NOT_FOUND);
-                    System.err.printf("[KERBEROS AS]Targetted TGS: %s : %s\n",
+                    System.err.printf("[KERBEROS AS]Targeted TGS pas trouvé: %s : %s\n",
                             (String) r.get(KAS_CST.TGSNAME), 
                             KAS_CST.TGS_NOT_FOUND);
                 }
@@ -225,10 +220,9 @@ public class KerberosAS {
                 ex) {
             Logger.getLogger(KerberosAS.class.getName()).log(Level.SEVERE, null, ex);
             reponse.setType(KAS_CST.FAIL);
-            reponse.add(KAS_CST.MSG, KAS_CST.FAILURE+" : "+ex.getMessage());
+            reponse.add(KAS_CST.MSG, KAS_CST.FAILURE+ex.getMessage());
         } finally {            
             gsocket.Send(reponse);
-        }
-        
+        }       
     }
 }

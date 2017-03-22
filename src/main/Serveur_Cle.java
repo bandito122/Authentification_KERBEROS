@@ -8,7 +8,7 @@ import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
-import ServeurCle.SC_State;
+import ServeurCle.State.SC_State;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -18,7 +18,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
-import ServeurCle.SC_Init_State;
+import ServeurCle.State.SC_Init_State;
 import ServeurCle.SC_CST;
 import javax.crypto.SecretKey;
 /*
