@@ -15,7 +15,7 @@ public interface SC_CST {
             KEYFAILED="Clé long terme pas trouvée où clé invalide",
             OPNOTPERMITTED="ERROR: opération %s interdite "; 
     
-    //constantes paramètres
+    //constantes des noms des paramètres
     public static final String USERNAME="username", PWD="password", SALT="salt", MSG="message",
             PK="PK",SECRETKEY="secretkey";
 }

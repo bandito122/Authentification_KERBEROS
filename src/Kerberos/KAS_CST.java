@@ -19,9 +19,9 @@ public interface KAS_CST {
             UNKNOWN_OPERATION="opération inconnue",
             FAILURE="erreur interne au serveur";
    
-    //nom des paramètres
+    //constantes des noms des paramètres
     public static final String MSG="message", USERNAME="username", PWD="pwd", SALT="salt",
             INTERFACE="interface", TGSNAME="tgsname", DATETIME="datetime", KCTGS="kctgs",
-            VERSION="version", TICKETGS="ticketGS";
+            VERSION="version", TICKETGS="ticketgs";
     
 }

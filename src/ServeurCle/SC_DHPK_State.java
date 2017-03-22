@@ -4,6 +4,7 @@ import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Network.CipherGestionSocket;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
+import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -42,7 +43,7 @@ public class SC_DHPK_State extends SC_State {
             sc.setActualState(new SC_GetKey_State(sc.gs, sc));
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | 
                 InvalidAlgorithmParameterException | InvalidKeyException |
-                NoSuchChiffrementException ex) {
+                NoSuchChiffrementException | IOException ex) {
             Logger.getLogger(SC_DHPK_State.class.getName()).log(Level.SEVERE, null, ex);
             
             //envoyer message erreur au client

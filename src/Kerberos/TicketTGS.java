@@ -30,12 +30,4 @@ public class TicketTGS implements Serializable {
         this.validty = validty;
         this.cleSession=cleSession;
     }
-    
-    public byte[] getCipherTicket(String transformation, SecretKey sk) 
-            throws NoSuchAlgorithmException, NoSuchPaddingException, IOException,
-            InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cipher=Cipher.getInstance(transformation);
-        cipher.init(Cipher.ENCRYPT_MODE, sk);
-        return cipher.doFinal(ByteUtils.toByteArray(this));
-    }
 }

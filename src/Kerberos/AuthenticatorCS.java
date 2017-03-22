@@ -24,10 +24,4 @@ public class AuthenticatorCS implements Serializable {
         this.hcourant = hcourant;
         this.checksum = checksum;
     }
-    
-    public byte[] getCipherAuthenticatorCS(String transformation, SecretKey sk) throws IllegalBlockSizeException, BadPaddingException, IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
-        Cipher cipher=Cipher.getInstance(transformation);
-        cipher.init(Cipher.ENCRYPT_MODE, sk);
-        return cipher.doFinal(ByteUtils.toByteArray(this));
-    }
 }

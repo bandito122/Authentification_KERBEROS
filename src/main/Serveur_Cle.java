@@ -30,23 +30,12 @@ import ServeurCle.SC_CST;
 import javax.crypto.SecretKey;
 /*
  * @author Julien
- * Représente le Serveur_Clé que contact l'Application_Admin pour avoir sa clé long terme 
- * Pour communiquer avec le client.
- * Un client se connecte et ils font envoie DiffieHellman pour faire un DiffieHellman, si exception pdnt 
- * celui-ci renvoie un FAIL et ferme la socket.
- * Un client envoit une demande GETKEY pour récupéré la clé correspondant au username associé 
- * d'un pwd envoyés en paramètre, si autre demande => renvoyer FAIL (signale une ERREUR:
- * commande non supportée  et ferme la socket. 
- * Le username et password du client correspondent respectivement à l'alias et le storepasse de 
- * la clé secrète stockée dans le fichier!
- * Si GETKEY réussit: le serveur répond: YES avec la clé long terme correspondant au SHA1
- *                  si clé pas trouvée: FAIL: key not found
- * si login échoue: NO: passphrase not correct
- * et ferme la socket dans TOUS les cas. Puis il se remet en attente d'une connexion.
+ * ATTENTION: CE SERVEUR PRODUIT LA CLE LONG TERME DU CLIENT ET DU KERBEROS AS
+ * C/C LE FICHIER USERNAME.KEY VERS LE DOSSIER KERBEROS_AS/JULIEN.KEY
  */
 public class Serveur_Cle {
     //constantes fichiers
-    private static final String DIRECTORY=System.getProperty("user.home")+ System.getProperty("file.separator")+
+    public static final String DIRECTORY=System.getProperty("user.home")+ System.getProperty("file.separator")+
             "server_cle"+ System.getProperty("file.separator"),  
             CONFIG_FILE=DIRECTORY+"config.properties", USERS_FILE=DIRECTORY+"users.properties",
             EXT=".key";
@@ -154,7 +143,7 @@ public class Serveur_Cle {
     }
     
     //charge une clé secrète à partir d'un fichier
-    private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
+    /*private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
         ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+EXT));
         Cle c=(Cle) ois.readObject();
         ois.close();
@@ -185,7 +174,7 @@ public class Serveur_Cle {
         } 
         
         return c;
-    }
+    }*/
     
     //permet de vérifier si un mot de passe à partir d'un username, un "salement"
     //de mot de passe envoyé par l'utilisateur et un password "digesté"

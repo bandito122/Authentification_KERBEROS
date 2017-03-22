@@ -6,6 +6,7 @@ import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
+import Serializator.KeySerializator;
 import main.Serveur_Cle;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -27,7 +28,8 @@ public class SC_GetKey_State extends SC_State {
         Chiffrement ch=sc.getChiffrement();
         try {
             //récupérer la clé dans un fichier .key
-            Cle cle=sc.getKey((String)r.get(SC_CST.USERNAME));
+            Cle cle=KeySerializator.getKey(Serveur_Cle.DIRECTORY+
+                    (String)r.get(SC_CST.USERNAME)+Serveur_Cle.EXT, sc.getAlgorithm());
             
             //Chiffrer l'objet Clé
             //byte[] cipherKey=ch.crypte(ByteUtils.toByteArray((Object) cle));

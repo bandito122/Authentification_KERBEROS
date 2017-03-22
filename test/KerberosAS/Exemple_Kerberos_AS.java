@@ -33,33 +33,35 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import Kerberos.KAS_CST;
 import Kerberos.KTGS_CST;
+import Kerberos.TicketTGS;
+import Serializator.KeySerializator;
 import java.util.Arrays;
 
 /*
  * @author Julien
  */
 public class Exemple_Kerberos_AS {
-    public static String HOST="localhost";
-    public static int PORT_AS=6002;
-    public static int PORT_TGS=6003;
-    public static String KEY_TYPE="DES";
-    public static String USERNAME="julien";
-    public static String PWD="test";    
-    //public static String PWD=""; //debug
-    public static String TGS_NAME="default";
-    //public static String TGS_NAME="echec"; //debug
+    public static int PORT_AS=6002, PORT_TGS=6003;
+    public static String KEY_TYPE="DES",
+        HOST="localhost",
+        USERNAME="julien", 
+        PWD="test",
+        //PWD="", //debug
+        TGS_NAME="default",
+        SERVER="default";
+        //TGS_NAME="echec"; //debug
     
     //à mettre dans configuration     
-    public static String ENCODING="UTF-8";
-    public static String LDF_PATTERN="dd/MM/yyyy HH:00";
-    public static String ALGORITHM="DES";
+    public static String ENCODING="UTF-8",
+        LDF_PATTERN="dd/MM/yyyy HH:00",
+        ALGORITHM="DES";
     
     public static String KEY_DIR=System.getProperty("user.home")+System.getProperty("file.separator")+
             "client_cle"+System.getProperty("file.separator")+"exemple_cle.key";
     
     static Chiffrement chKc, chKctgs;
     static Cle Kc, Kctgs;
-    static GestionSocket gsocket_AS;
+    static GestionSocket gsocket_AS, gsocket_TGS;
     static Socket s;
     static Cipher cipher;
     static NetworkPacket paramAS;
@@ -67,9 +69,10 @@ public class Exemple_Kerberos_AS {
     public static void main(String[] args) {
         try {
             //lire la clé utilisateur long terme, ici dans un fichier, en vrai reçue du serveur clé
-            Kc=loadKey();
+            Kc=KeySerializator.loadKey(KEY_DIR, ALGORITHM);
             chKctgs=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
             chKc=(Chiffrement) CryptoManager.newInstance(ALGORITHM);
+            chKc.init(Kc);
 //            cipher=Cipher.getInstance("DES/ECB/PKCS5Padding");
             s=new Socket(HOST, PORT_AS);
             gsocket_AS=new GestionSocket(s);
@@ -77,6 +80,10 @@ public class Exemple_Kerberos_AS {
             
             //test KerberosAS
             SendFirstPacket();
+            gsocket_AS.Close();
+            
+            System.out.println("[CLIENT]Attaquons le serveur KerberosTGS");
+            
             //test KerberosTGS
             SendSecondPacket();
         } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | 
@@ -88,14 +95,17 @@ public class Exemple_Kerberos_AS {
         }
     }
 
+    /*
     private static Cle loadKey() throws IOException, ClassNotFoundException {
         ObjectInputStream ois=new ObjectInputStream(new FileInputStream(KEY_DIR));
         Cle c=(Cle) ois.readObject();
         ois.close();
         return c;
-    }
+    }*/
 
-    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, BadPaddingException, NoSuchProviderException, NoSuchChiffrementException {
+    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException,
+            InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, 
+            BadPaddingException, NoSuchProviderException, NoSuchChiffrementException {
         //pour ne pas que le PWD passe en clair!
         SecurePasswordSha256 sp=new SecurePasswordSha256(PWD);
         
@@ -119,16 +129,11 @@ public class Exemple_Kerberos_AS {
         if(paramAS.getType()==KAS_CST.YES) {
             //OK
             System.out.printf("[CLIENT]User %s connecté!\n",USERNAME);
-            //cipher.init(Cipher.DECRYPT_MODE, ((CleDES)Kc).getCle( ));
             chKc.init(Kc);
-            /*paramAS=(ArrayList<Object>) r.getChargeUtile();
-            ArrayList<byte[]> firstPartAS=(ArrayList<byte[]>) paramAS.get(0);
-            ArrayList<byte[]> secondPartAS=(ArrayList<byte[]>) paramAS.get(1);*/
             
             //première partie
-            //Kctgs=(Cle) ByteUtils.toObject(cipher.doFinal(firstPartAS.get(0)));
-        //Kctgs=(Cle) ByteUtils.toObject(chKc.decrypte((byte[])paramAS.get(KAS_CST.KCTGS)));
             Kctgs=(Cle) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.KCTGS)));
+            
             /*ByteBuffer bb=ByteBuffer.allocate(4);
             int version=ByteBuffer.wrap(cipher.doFinal(firstPartAS.get(1))).getInt();*/
             int version=(Integer) ByteUtils.toObject(cgs.decrypte(paramAS.get(KAS_CST.VERSION)));
@@ -161,56 +166,67 @@ public class Exemple_Kerberos_AS {
     //Communication avec le TGS
     private static void SendSecondPacket() throws NoSuchAlgorithmException, 
             NoSuchProviderException, InvalidKeyException, IOException, 
-            IllegalBlockSizeException, BadPaddingException, UnknownHostException, ClassNotFoundException {
-        /*
-        ArrayList<byte[]> firstPartAS=(ArrayList<byte[]>) paramAS.get(0);
-        ArrayList<byte[]> secondPartAS=(ArrayList<byte[]>) paramAS.get(1);
-        
-     //deuxieme partie= TICKET, faut avoir le AS
-        HMAC hmac=new HMAC();
-        LocalDateTime now=LocalDateTime.now();
-        hmac.generate(((CleDES)Kctgs).getCle(), USERNAME+now.format(
-                DateTimeFormatter.ofPattern(LDF_PATTERN)));
-        ArrayList<Object> tgsParam=new ArrayList<>(3);
-
-        AuthenticatorCS acs=new AuthenticatorCS(USERNAME, 
-                LocalDateTime.now(), hmac.ToString());
-
-        NetworkPacket tgsReq=new NetworkPacket(KTGS_CST.INIT);
-
+            IllegalBlockSizeException, BadPaddingException, UnknownHostException, ClassNotFoundException {        
         //Connexion au serveur TGS
         Socket s=new Socket(HOST, PORT_TGS);
-        GestionSocket gsocket_TGS=new GestionSocket(s);
 
-        //chiffrer l'ACS
-        cipher.init(Cipher.ENCRYPT_MODE, ((CleDES)Kctgs).getCle());
-        tgsParam.add(cipher.doFinal(ByteUtils.toByteArray(acs))); //ACS
+        //Le paquet en entier n'est pas chiffré, juste le ticket!
+        //TGS à besoin du ticket pour récupérer la clé de session
+        //le ticket est chiffrer avec la clé long terme de TGS
+        gsocket_TGS=new GestionSocket(s);
         
-        //ajout des autres paramètres
-        tgsParam.add(secondPartAS.get(0)); //tgs déjà chiffré
-        tgsParam.add("default"); //nom serveur
-        tgsReq.setChargeUtile(tgsParam);
-
+        //crée le paquet et l'envoit!
+        NetworkPacket tgsReq=new NetworkPacket(KTGS_CST.SENDTICKET);
+        tgsReq.add(KTGS_CST.TGS, (byte[])paramAS.get(KAS_CST.TICKETGS)); //tgs déjà chiffré
         gsocket_TGS.Send(tgsReq);
-        NetworkPacket reponse2=(NetworkPacket) gsocket_TGS.Receive();
-        cipher.init(Cipher.DECRYPT_MODE, ((CleDES)Kctgs).getCle());
-        paramAS=(ArrayList<Object>) reponse2.getChargeUtile();
         
-        //premiere partie est chiffrée par kctgs
-        firstPartAS=(ArrayList<byte[]>) paramAS.get(0);
-        Cle kcs=(Cle) ByteUtils.toObject(cipher.doFinal(
-                firstPartAS.get(0)));
-        int version=ByteBuffer.wrap(
-                cipher.doFinal(firstPartAS.get(1))).getInt();
-        String nomServeur=new String(cipher.doFinal(firstPartAS.get(2)),
-                ENCODING);
-        LocalDateTime ldt=LocalDateTime.parse(
+        //lire réponse
+        NetworkPacket ticketReponse=(NetworkPacket) gsocket_TGS.Receive();
+        
+        if(ticketReponse.getType()!=KTGS_CST.YES) {
+            System.out.printf("[CLIENT] Erreur lors du SEND TICKET: %s\n",
+                    ticketReponse.get(KTGS_CST.MSG));
+            gsocket_TGS.Close();
+            System.exit(-1);
+        } else {
+            System.out.printf("[CLIENT]Serveur TGS ok\n");
+        }
+        
+        //la communication est maintenant chiffrée par kc,tgs: clé temporaire
+        //entre le client et le serveur TGS
+        chKctgs.init(Kctgs);
+        gsocket_TGS=(GestionSocket) new CipherGestionSocket(s, chKctgs);
+        
+        //on doit ensuite envoyer l'ACS: on le prépare donc
+        HMAC hmac=new HMAC();
+        hmac.generate(((CleDES)Kctgs).getCle(), USERNAME+getDateTimeNow());
+        AuthenticatorCS acs=new AuthenticatorCS(USERNAME,
+                LocalDateTime.now(), hmac.ToString());
+        
+        //préparer le paquet avec l'ACS à envoyer
+        NetworkPacket tgsParam=new NetworkPacket(KTGS_CST.SENDACS);
+        tgsParam.add(KTGS_CST.ACS, acs);
+        tgsParam.add(KTGS_CST.USERNAME,USERNAME); //nom du client
+        gsocket_TGS.Send(tgsParam);
+        
+        //lit la réponse    
+        NetworkPacket paramTGS=(NetworkPacket) gsocket_TGS.Receive();
+        Cle kcs=(Cle) paramTGS.get(KTGS_CST.KCS);
+        /*int version=ByteBuffer.wrap(
+                cipher.doFinal(firstPartAS.get(1))).getInt();*/
+        int version=(Integer) paramTGS.get(KTGS_CST.VERSION);
+        /*String nomServeur=new String(cipher.doFinal(firstPartAS.get(2)),
+                ENCODING);*/
+        String nomServeur=(String) paramTGS.get(KTGS_CST.SERVER_NAME);
+        /*LocalDateTime ldt=LocalDateTime.parse(
                 new String(cipher.doFinal(firstPartAS.get(3)), ENCODING),
-                DateTimeFormatter.ofPattern(LDF_PATTERN));
+                DateTimeFormatter.ofPattern(LDF_PATTERN));*/
+        String ldt=(String) paramTGS.get(KTGS_CST.DATETIME);
 
         //seconde partie par ks... on ne sait pas la déchiffrer!
-        byte[] ticketBis=secondPartAS.get(0);
-        System.out.println("OKOKOKKOKOK");   */
+        //byte[] ticketBis=secondPartAS.get(0);
+        TicketTGS ticketTgs=(TicketTGS) paramTGS.get(KTGS_CST.TICKETGS);
+        System.out.println("OKOKOKKOKOK");
     }
 
     private static void stop() {
@@ -223,5 +239,14 @@ public class Exemple_Kerberos_AS {
         } catch (IOException ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    /**
+     * A bouger dans la classe KTGS_CST
+     * @return 
+     */
+    protected static String getDateTimeNow() {
+        return LocalDateTime.now().format(
+                DateTimeFormatter.ofPattern(LDF_PATTERN));
     }
 }
