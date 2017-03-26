@@ -6,7 +6,7 @@ package Kerberos;
  */
 public interface KTGS_CST {
      //constantes opérations
-    public static int FAIL=-1, YES=1, NO=2, SENDTICKET=3, SENDACS=4;
+    public static int FAIL=-1, YES=1, NO=2, SEND_AUTHENTICATOR=3, SEND_TICKET=4;
     
     //messages d'erreurs constants
     public static final String CMD_FAILED="commande non-supportée",

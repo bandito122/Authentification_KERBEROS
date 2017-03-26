@@ -2,25 +2,18 @@ package main;
 
 import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
-import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
 import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
-import JavaLibrary.Network.CipherGestionSocket;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
-import Kerberos.AuthenticatorCS;
-import Kerberos.TicketTGS;
-import JavaLibrary.Utils.ByteUtils;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,8 +23,6 @@ import Kerberos.KTGS_CST;
 import Kerberos.TGSState.TGS_State;
 import Kerberos.TGSState.TGS_Ticket_State;
 import Serializator.KeySerializator;
-import java.security.InvalidParameterException;
-import java.time.LocalDate;
 
 /*
  * @author Julien
@@ -127,11 +118,11 @@ public class KerberosTGS {
                 break;
             }
             switch(req.getType()) {
-                case KTGS_CST.SENDTICKET: System.out.println("[KERBEROS TGS] SENDTICKETS request received");
-                    this.actualState.HandleSendTicket(req);
+                case KTGS_CST.SEND_AUTHENTICATOR: System.out.println("[KERBEROS TGS] SENDTICKETS request received");
+                    this.actualState.HandleTicket(req);
                     break;
-                case KTGS_CST.SENDACS: System.out.println("[KERBEROS TGS] SENDACS request received");
-                    this.actualState.HandleSendACS(req);
+                case KTGS_CST.SEND_TICKET: System.out.println("[KERBEROS TGS] SENDACS request received");
+                    this.actualState.HandleAuthenticator(req);
                     break;
                 default:
                     NetworkPacket r=new NetworkPacket(KAS_CST.FAIL);

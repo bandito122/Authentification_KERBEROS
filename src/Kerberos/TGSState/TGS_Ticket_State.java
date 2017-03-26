@@ -25,7 +25,7 @@ public class TGS_Ticket_State extends TGS_State {
     }
     
     @Override
-    public void HandleSendTicket(NetworkPacket np) throws IOException {
+    public void HandleTicket(NetworkPacket np) throws IOException {
         NetworkPacket reponse=new NetworkPacket(0);
         boolean error=false;
         try {
@@ -38,7 +38,7 @@ public class TGS_Ticket_State extends TGS_State {
             
             //regarder si validité dépassée | si validité trop loin dans le passé
             if(ticketTGS.tv.compareTo(now.plusDays(context.validite))>0 ||
-                    ticketTGS.tv.compareTo(now.minusDays(context.validite))>0) {
+                    ticketTGS.tv.compareTo(now.minusDays(context.validite))<0) {
                 throw new InvalidParameterException(KTGS_CST.DATETIME_FAILED);
             }
             
@@ -64,7 +64,7 @@ public class TGS_Ticket_State extends TGS_State {
             error=true;
         } finally {
             gsocket.Send(reponse);
-            if(!error) {
+            if(error) {
                 //la clé de session sert à déchiffer l'authentificateur, on doit donc 
                 //générer un nouveau CipherGestionSocket sur le chiffrement kctgs
                 gsocket=new CipherGestionSocket(gsocket.getCSocket(), context.ch_kctgs);

@@ -19,8 +19,6 @@ import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
@@ -104,7 +102,6 @@ public class Exemple_Kerberos_AS {
         np.add(KAS_CST.INTERFACE, InetAddress.getLocalHost().getHostAddress());
         np.add(KAS_CST.TGSNAME, TGS_NAME);
         np.add(KAS_CST.DATETIME, LocalDate.now());
-        //np.add(KAS_CST.DATETIME, LocalDate.now().minusDays(2));//debug: non valide depuis un jour
         System.out.printf("[CLIENT]Local Host: %s\n",
                 InetAddress.getLocalHost().getHostAddress());
         gsocket_AS.Send(np);
@@ -161,7 +158,7 @@ public class Exemple_Kerberos_AS {
         gsocket_TGS=new GestionSocket(s);
         
         //crée le paquet et l'envoit!
-        NetworkPacket tgsReq=new NetworkPacket(KTGS_CST.SENDTICKET);
+        NetworkPacket tgsReq=new NetworkPacket(KTGS_CST.SEND_AUTHENTICATOR);
         tgsReq.add(KTGS_CST.TGS, (byte[])paramAS.get(KAS_CST.TICKETGS)); //tgs déjà chiffré
         gsocket_TGS.Send(tgsReq);
         
@@ -169,7 +166,7 @@ public class Exemple_Kerberos_AS {
         NetworkPacket ticketReponse=(NetworkPacket) gsocket_TGS.Receive();
         
         if(ticketReponse.getType()!=KTGS_CST.YES) { //erreur
-            System.out.printf("[CLIENT] Erreur lors du SEND TICKET: %s\n",
+            System.out.printf("[CLIENT]Erreur lors du SEND TICKET: %s\n",
                     ticketReponse.get(KTGS_CST.MSG));
             gsocket_TGS.Close();
             System.exit(-1);
@@ -180,16 +177,16 @@ public class Exemple_Kerberos_AS {
         //la communication est maintenant chiffrée par kc,tgs: une clé temporaire
         //entre le client et le serveur TGS
         chKctgs.init(Kctgs);
-        gsocket_TGS=(GestionSocket) new CipherGestionSocket(s, chKctgs);
+        //gsocket_TGS=(GestionSocket) new CipherGestionSocket(gsocket_TGS.ois, gsocket_TGS.oos, chKctgs);
         
         //on doit ensuite envoyer l'ACS: on le prépare donc
         HMAC hmac=new HMAC();
-        hmac.generate(((CleDES)Kctgs).getCle(), USERNAME+LocalDate.now().toString());
+            hmac.generate(((CleDES)Kctgs).getCle(), USERNAME+LocalDate.now().toString());
         AuthenticatorCS acs=new AuthenticatorCS(USERNAME,
                 LocalDate.now(), hmac);
         
         //préparer le paquet avec l'ACS à envoyer
-        NetworkPacket tgsParam=new NetworkPacket(KTGS_CST.SENDACS);
+        NetworkPacket tgsParam=new NetworkPacket(KTGS_CST.SEND_TICKET);
         tgsParam.add(KTGS_CST.ACS, acs);
         tgsParam.add(KTGS_CST.USERNAME,USERNAME); //nom du client
         gsocket_TGS.Send(tgsParam);
@@ -200,7 +197,7 @@ public class Exemple_Kerberos_AS {
             Cle kcs=(Cle) paramTGS.get(KTGS_CST.KCS);
             int version=(Integer) paramTGS.get(KTGS_CST.VERSION);
             String nomServeur=(String) paramTGS.get(KTGS_CST.SERVER_NAME);
-            String ldt=(String) paramTGS.get(KTGS_CST.DATETIME);
+            String ldt=paramTGS.get(KTGS_CST.DATETIME).toString();
 
             //seconde partie par ks... on ne sait pas la déchiffrer!
             TicketTGS ticketTgs=(TicketTGS) paramTGS.get(KTGS_CST.TICKET_SERVER);

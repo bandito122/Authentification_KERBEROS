@@ -2,15 +2,12 @@ package Kerberos.TGSState;
 
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
-import JavaLibrary.Crypto.NoSuchCleException;
 import JavaLibrary.Network.GestionSocket;
 import JavaLibrary.Network.NetworkPacket;
 import Kerberos.AuthenticatorCS;
 import Kerberos.KTGS_CST;
 import Kerberos.TicketTGS;
 import java.security.InvalidParameterException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.time.LocalDate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,7 +23,7 @@ public class TGS_Authenticator_State extends TGS_State {
     }
     
     @Override
-    public void HandleSendACS(NetworkPacket req) {
+    public void HandleAuthenticator(NetworkPacket req) {
         NetworkPacket reponse = null;
         try {
             //récupérer l'authenticatorCS pour l'analyser
@@ -35,7 +32,7 @@ public class TGS_Authenticator_State extends TGS_State {
             //regarder si validité dépassée | si validité trop loin dans le passé
             LocalDate now=LocalDate.now();
             if(acs.tv.compareTo(now.plusDays(context.validite))>0 ||
-                    acs.tv.compareTo(now.minusDays(context.validite))>0) {
+                    acs.tv.compareTo(now.minusDays(context.validite))<0) {
                 throw new InvalidParameterException(KTGS_CST.DATETIME_FAILED);
             }
             
