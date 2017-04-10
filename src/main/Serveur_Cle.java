@@ -135,40 +135,6 @@ public class Serveur_Cle {
         port=Integer.valueOf(s_port);
     }
     
-    //charge une clé secrète à partir d'un fichier
-    /*private Cle loadKey(String username) throws FileNotFoundException, IOException, ClassNotFoundException {
-        ObjectInputStream ois=new ObjectInputStream(new FileInputStream(DIRECTORY+username+EXT));
-        Cle c=(Cle) ois.readObject();
-        ois.close();
-        return c;
-    }
-    
-    //crée une clé secrète et l'enregistre dans un fichier
-    private Cle createKey(String username) throws NoSuchChiffrementException, IOException, 
-            NoSuchCleException, NoSuchAlgorithmException, NoSuchProviderException {
-        Cle k = (Cle) CryptoManager.genereCle(algorithm);
-        ((CleDES)k).generateNew();        
-        ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(DIRECTORY+username+EXT));
-        oos.writeObject(k);
-        oos.close();
-        return k;
-    }
-    
-    //permet de récupérer la clé d'un utilisateur
-    //le format du nom de fichier est "username.key"
-    public Cle getKey(String keyUser) throws IOException, ClassNotFoundException, NoSuchProviderException,
-            NoSuchChiffrementException, NoSuchCleException, NoSuchAlgorithmException {
-        Cle c;
-        try {
-            c=loadKey(keyUser); //si la clé existe, on la charge à partir du fichier
-        } catch(FileNotFoundException e) {
-            //fichier non trouvé=il faut la créer puis la sauvegarder
-            c=createKey(keyUser);
-        } 
-        
-        return c;
-    }*/
-    
     //permet de vérifier si un mot de passe à partir d'un username, un "salement"
     //de mot de passe envoyé par l'utilisateur et un password "digesté"
     public boolean connectUser(String username, String salt, String receivedPassword) 

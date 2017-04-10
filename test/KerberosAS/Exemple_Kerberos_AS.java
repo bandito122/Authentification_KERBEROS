@@ -1,9 +1,11 @@
 package KerberosAS;
 
+import JavaLibrary.Crypto.ChiffreImpl.ChiffreDES;
 import JavaLibrary.Crypto.Chiffrement;
 import JavaLibrary.Crypto.Cle;
 import JavaLibrary.Crypto.CleImpl.CleDES;
 import JavaLibrary.Crypto.CryptoManager;
+import JavaLibrary.Crypto.DiffieHellman.DiffieHellman;
 import JavaLibrary.Crypto.HMAC.HMAC;
 import JavaLibrary.Crypto.NoSuchChiffrementException;
 import JavaLibrary.Crypto.SecurePassword.SecurePasswordSha256;
@@ -28,6 +30,9 @@ import Kerberos.KAS_CST;
 import Kerberos.KTGS_CST;
 import Kerberos.TicketTGS;
 import Serializator.KeySerializator;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.InvalidParameterSpecException;
 import java.time.LocalDate;
 import java.util.Arrays;
 
@@ -72,7 +77,7 @@ public class Exemple_Kerberos_AS {
             System.out.printf("[CLIENT]Connected to server %s:%d\n",HOST, PORT_AS);
             
             //test KerberosAS
-            SendFirstPacket();
+            ASAuthentication();
             gsocket_AS.Close();
             
             System.out.println("[CLIENT]Attaquons le serveur KerberosTGS");
@@ -88,7 +93,8 @@ public class Exemple_Kerberos_AS {
         }
     }
 
-    private static void SendFirstPacket() throws NoSuchAlgorithmException, IOException,
+    //s'authentifier auprès du Kerberos AS
+    private static void ASAuthentication() throws NoSuchAlgorithmException, IOException,
             InvalidKeyException, IllegalBlockSizeException, ClassNotFoundException, 
             BadPaddingException, NoSuchProviderException, NoSuchChiffrementException {
         //pour ne pas que le PWD passe en clair!
@@ -108,7 +114,7 @@ public class Exemple_Kerberos_AS {
         
         //Lire la réponse. De +, on est en partiellement chiffré donc pas de CipherGestionSocket
         paramAS=(NetworkPacket) gsocket_AS.Receive();
-        //Avec une socket null CGS permet de (dé)chiffrer simplement
+        //Avec une socket null, CGS permet de (dé)chiffrer simplement
         CipherGestionSocket cgs=new CipherGestionSocket(null, chKc);
         if(paramAS.getType()==KAS_CST.YES) {
             //OK
@@ -136,11 +142,64 @@ public class Exemple_Kerberos_AS {
             String plainText=chKctgs_test.decrypte(ciphertext);
             System.out.printf("text déchiffré: %s\n", Arrays.toString(plainText.getBytes()));
             System.out.printf("text déchiffré: %s\n", plainText);
-        } else { //pas ok
+        } else { //pas ok: si clé pas trouvée ?
             System.out.printf("[CLIENT]Message received: %s\n",
                     ((String)paramAS.get(KAS_CST.MSG)));
-            stop();
+            //stop();
+            TransferLongTermKey();
+            
         }
+        
+    }
+    
+    //si serveur ne connaît pas la clé long terme du client, il faut lui transférer
+    private static void TransferLongTermKey() {
+        try {
+            System.out.println("Il faut générer un Diffie Hellman pour transmettre la clé long terme");
+            //Réaliser un DH
+            NetworkPacket request=new NetworkPacket(KAS_CST.TRANSFER_KEY);
+            DiffieHellman dh=new DiffieHellman();
+            request.add(KAS_CST.PK, dh.getPublicKey().getEncoded()); //envoit sa partie publique
+            System.out.println("Diffie Hellman généré, on l'envoie au serveur");
+            gsocket_AS.Send(request);
+            
+            NetworkPacket answer=(NetworkPacket) gsocket_AS.Receive();
+            if(answer.getType()==KAS_CST.YES) { //reçoit la partie publique du serveur
+                dh.setPublicKey((byte[]) answer.get(KAS_CST.PK));
+            } else { //erreur
+                System.out.printf("[CLIENT]Message received: %s\n",
+                    ((String)answer.get(KAS_CST.MSG)));
+                stop();
+            }
+            //envoyer que tout est OK de notre côté
+            NetworkPacket response=new NetworkPacket(KAS_CST.YES);
+            gsocket_AS.Send(response);
+            
+            //chiffrer la connexion
+            ChiffreDES tmpCh=(ChiffreDES) CryptoManager.newInstance(ALGORITHM);
+            tmpCh.init(new CleDES(dh.getSecretKey()));
+            CipherGestionSocket cgs=new CipherGestionSocket(null, tmpCh);
+            
+            //envoyer la clé long terme
+            NetworkPacket longTermKeyPacket=new NetworkPacket(KAS_CST.TRANSFER_KEY);
+            longTermKeyPacket.add(KAS_CST.KC, cgs.crypte(Kc));
+            longTermKeyPacket.add(KAS_CST.USERNAME, cgs.crypte(USERNAME));
+            gsocket_AS.Send(longTermKeyPacket);
+            
+            NetworkPacket answer2=(NetworkPacket) gsocket_AS.Receive();
+            if(answer2.getType()==KAS_CST.FAIL) {//si erreur
+                System.out.printf("[CLIENT]Message received: %s\n",
+                    ((String)answer2.get(KAS_CST.MSG)));
+            } else { //OK
+                ASAuthentication();
+            }
+        } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidParameterSpecException | 
+                InvalidAlgorithmParameterException | IOException | InvalidKeyException | 
+                IllegalBlockSizeException | ClassNotFoundException | BadPaddingException | 
+                NoSuchChiffrementException | InvalidKeySpecException ex) {
+            Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
         
     }
     
@@ -217,5 +276,6 @@ public class Exemple_Kerberos_AS {
         } catch (IOException ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }    
+    }
+    
 }

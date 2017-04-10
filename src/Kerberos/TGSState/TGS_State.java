@@ -20,11 +20,11 @@ public abstract class TGS_State {
     }
     
     public void HandleTicket(NetworkPacket r) throws IOException {
-        OperationNotPermitted("Handle Ticket State");
+        OperationNotPermitted("Handle Ticket");
     }
     
     public void HandleAuthenticator(NetworkPacket req) {
-        OperationNotPermitted("Handle ACS State");
+        OperationNotPermitted("Handle ACS ");
     }
     
     public void HandleQuit(NetworkPacket np) {
