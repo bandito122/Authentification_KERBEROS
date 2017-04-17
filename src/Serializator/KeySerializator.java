@@ -22,6 +22,7 @@ public class KeySerializator {
     public static void saveKey(String path, Cle cle) throws IOException {
         ObjectOutputStream oos=new ObjectOutputStream(new FileOutputStream(path));
         oos.writeObject(cle);
+        oos.flush();
         oos.close();
     }
     

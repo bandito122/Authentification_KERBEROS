@@ -128,6 +128,7 @@ public class KerberosAS {
         while(!isQuit()) {
             NetworkPacket req=(NetworkPacket) getGsocket().Receive();
             if(req==null) {
+                System.out.println("null packet received");
                 break;
             }
             switch(req.getType()) {
@@ -137,7 +138,7 @@ public class KerberosAS {
                     state.HandleAuthentication(req);
                     break;
                 case KAS_CST.TRANSFER_KEY:
-                    state.HandleTransferKey(req);
+                     state.HandleTransferKey(req);
                     break;
                 case KAS_CST.QUIT:
                     System.out.println("[KERBEROS AS] QUIT request received");

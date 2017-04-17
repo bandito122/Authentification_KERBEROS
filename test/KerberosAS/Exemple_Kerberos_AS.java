@@ -31,6 +31,7 @@ import Kerberos.KTGS_CST;
 import Kerberos.TicketTGS;
 import Serializator.KeySerializator;
 import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidParameterException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
 import java.time.LocalDate;
@@ -191,12 +192,15 @@ public class Exemple_Kerberos_AS {
                 System.out.printf("[CLIENT]Message received: %s\n",
                     ((String)answer2.get(KAS_CST.MSG)));
             } else { //OK
+
                 ASAuthentication();
             }
         } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidParameterSpecException | 
                 InvalidAlgorithmParameterException | IOException | InvalidKeyException | 
                 IllegalBlockSizeException | ClassNotFoundException | BadPaddingException | 
-                NoSuchChiffrementException | InvalidKeySpecException ex) {
+                NoSuchChiffrementException | InvalidKeySpecException | InvalidParameterException ex) {
+            Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
+        } catch  (Exception ex) {
             Logger.getLogger(Exemple_Kerberos_AS.class.getName()).log(Level.SEVERE, null, ex);
         }
         
