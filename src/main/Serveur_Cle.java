@@ -20,7 +20,9 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
 import ServeurCle.State.SC_Init_State;
 import ServeurCle.SC_CST;
+import java.security.Security;
 import javax.crypto.SecretKey;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 /*
  * @author Julien
  * ATTENTION: CE SERVEUR PRODUIT LA CLE LONG TERME DU CLIENT ET DU KERBEROS AS
@@ -183,7 +185,9 @@ public class Serveur_Cle {
         return padding;
     }
     
-    public static void main(String[] args) {
+    public static void main(String[] args) 
+    {
+        Security.addProvider(new BouncyCastleProvider());
         Serveur_Cle sc=new Serveur_Cle();
     }
 

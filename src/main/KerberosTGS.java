@@ -23,6 +23,8 @@ import Kerberos.KTGS_CST;
 import Kerberos.TGSState.TGS_State;
 import Kerberos.TGSState.TGS_Ticket_State;
 import Serializator.KeySerializator;
+import java.security.Security;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /*
  * @author Julien
@@ -48,7 +50,8 @@ public class KerberosTGS {
     public Cle ktgs,kctgs, kcs, ks;
     public Chiffrement ch_ktgs, ch_ks, ch_kctgs;
     public TGS_State actualState;
-    public KerberosTGS(String name) {
+    public KerberosTGS(String name) 
+    {
         try {
             this.name=name;
             loadConfig();
@@ -98,7 +101,9 @@ public class KerberosTGS {
                 + "kspwd, algorithm, cipher, padding\n", CONFIG_FILE);
     }
     
-    public static void main(String[] args) {
+    public static void main(String[] args) 
+    {
+        Security.addProvider(new BouncyCastleProvider());
         KerberosTGS kerberosTGS = new KerberosTGS("default");
     }
 

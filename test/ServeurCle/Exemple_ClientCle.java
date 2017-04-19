@@ -16,11 +16,13 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /*
  * @author Julien
@@ -37,6 +39,7 @@ public class Exemple_ClientCle {
     
     public static void main(String[] args) {
         try {
+            Security.addProvider(new BouncyCastleProvider());
             SecurePasswordSha256 sp=new SecurePasswordSha256(PWD);
             
             //SC doit écouter sur le port 6001

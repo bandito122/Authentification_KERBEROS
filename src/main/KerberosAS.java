@@ -26,13 +26,16 @@ import java.util.logging.Logger;
 import javax.crypto.NoSuchPaddingException;
 import Kerberos.KAS_CST;
 import Serializator.KeySerializator;
+import java.security.Security;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /*
  * @author Julien
  * ATTENTION: CE SERVEUR PRODUIT LA CLE LONG TERME DU SERVEUR TGS :
  * C/C LE FICHIER USERNAME.SERVERKEY VERS LE DOSSIER KERBEROS_TGS/KTGS.KEY
  */
-public class KerberosAS {
+public class KerberosAS 
+{
     private static final String FS=System.getProperty("file.separator");
     public String DIRECTORY = System.getProperty("user.home") + 
             FS+ "kerberos_as"+ FS;
@@ -60,11 +63,14 @@ public class KerberosAS {
         }
     }
     
-    public static void main(String[] args) {
+    public static void main(String[] args) 
+    {
+        Security.addProvider(new BouncyCastleProvider());
         KerberosAS kAS=new KerberosAS();
     }
 
-    private void loadConfig() throws IOException, NoSuchFieldException {
+    private void loadConfig() throws IOException, NoSuchFieldException 
+    {
         //Check if properties exists
         config=new Properties();
         users=new Properties();
@@ -75,6 +81,7 @@ public class KerberosAS {
         getTgServer().load(new FileInputStream(getTGSERVERS_FILE()));
         
         String s_port=getConfig().getProperty("port");
+        System.out.println("getconfigFile = " + getCONFIG_FILE());
         String s_validite=getConfig().getProperty("validite");
         String s_version=getConfig().getProperty("version");
         algorithm=getConfig().getProperty("algorithm");
@@ -115,7 +122,8 @@ public class KerberosAS {
         return passwordMatch;
     }
     
-    private void startListening() throws IOException, NoSuchPaddingException {
+    private void startListening() throws IOException, NoSuchPaddingException 
+    {
         ServerSocket ss=new ServerSocket(getPort());
         System.out.printf("[KERBEROS AS]Launched! waiting for client\n");
         Socket clientSocket=ss.accept();
