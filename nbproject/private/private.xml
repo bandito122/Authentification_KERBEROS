@@ -19,17 +19,15 @@
             <file>file:/C:/Users/Julien/Dropbox/M18/SécuritéLogicielleJava/Q2/Labo1/Kerberos/src/main/KerberosAS.java</file>
         </group>
         <group name="Java-Vilvens">
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/main/NewMain.java</file>
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/main/Serveur_Cle.java</file>
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/AuthenticatorCS.java</file>
+            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/KS_CST.java</file>
             <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/ASSTATE/AS_Authentication_State.java</file>
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/KTGS_CST.java</file>
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/ASSTATE/AS_NoKeyFound_State.java</file>
+            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/TicketTCS.java</file>
             <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/main/KerberosAS.java</file>
+            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/TGSState/TGS_Ticket_State.java</file>
             <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/test/KerberosAS/Exemple_Kerberos_AS.java</file>
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/TicketTGS.java</file>
+            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/ASSTATE/AS_State.java</file>
             <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/main/KerberosTGS.java</file>
-            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/test/ServeurCle/Exemple_ClientCle.java</file>
+            <file>file:/Users/bobmastrolilli/NetBeansProjects/Kerberos/src/Kerberos/TGSState/TGS_Authenticator_State.java</file>
         </group>
     </open-files>
 </project-private>
